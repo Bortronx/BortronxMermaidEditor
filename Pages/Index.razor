@@ -12,6 +12,7 @@
                 <input type="checkbox" @bind="ShowVariableNames" @bind:after="RenderDiagram" />
                 Show variable names
             </label>
+            <button type="button" @onclick="ToggleTheme">@(IsDark ? "Light mode" : "Dark mode")</button>
             <button @onclick="RenderDiagram">Render</button>
         </div>
     </div>
@@ -58,6 +59,7 @@
 @code {
     private bool ShowVariableNames { get; set; }
     private bool ControlsVisible { get; set; } = true;
+    private bool IsDark { get; set; }
 
     private string MermaidSource { get; set; } = @"
 flowchart TD
@@ -120,6 +122,12 @@ end
     {
         ControlsVisible = !ControlsVisible;
         await JS.InvokeVoidAsync("mermaidVariableEditor.setControlsVisible", ControlsVisible);
+    }
+
+    private async Task ToggleTheme()
+    {
+        IsDark = !IsDark;
+        await JS.InvokeVoidAsync("mermaidVariableEditor.setTheme", IsDark);
     }
 
     private async Task ClearErrorConsole()

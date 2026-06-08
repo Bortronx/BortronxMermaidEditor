@@ -1,7 +1,47 @@
 :root {
+    --bg: #f4f6fb;
+    --text: #172033;
+    --muted: #526071;
+    --note: #68758a;
+    --panel-bg: #ffffff;
+    --panel-border: #dce1ec;
+    --panel-shadow: rgba(32, 45, 72, 0.08);
+    --header-border: #e8ecf4;
+    --btn-bg: #ffffff;
+    --btn-border: #c6ccda;
+    --btn-text: #172033;
+    --field-bg: #ffffff;
+    --field-text: #172033;
+    --console-bg: #0f172a;
+    --console-text: #e2e8f0;
+    --error-bg: #fff1f1;
+    --error-border: #f0b9b9;
+    --error-text: #a40000;
+
     font-family: Inter, Arial, sans-serif;
-    color: #172033;
-    background: #f4f6fb;
+    color: var(--text);
+    background: var(--bg);
+}
+
+:root[data-theme="dark"] {
+    --bg: #0b1120;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --note: #8595ad;
+    --panel-bg: #131c2e;
+    --panel-border: #263247;
+    --panel-shadow: rgba(0, 0, 0, 0.45);
+    --header-border: #263247;
+    --btn-bg: #1e293b;
+    --btn-border: #334155;
+    --btn-text: #e2e8f0;
+    --field-bg: #0f1729;
+    --field-text: #e2e8f0;
+    --console-bg: #05080f;
+    --console-text: #cbd5e1;
+    --error-bg: #3b1212;
+    --error-border: #7f1d1d;
+    --error-text: #fca5a5;
 }
 
 body {
@@ -29,7 +69,7 @@ body {
 
 .header p {
     margin: 0;
-    color: #526071;
+    color: var(--muted);
 }
 
 .toolbar {
@@ -40,9 +80,9 @@ body {
 }
 
 button, .toggle {
-    border: 1px solid #c6ccda;
-    background: white;
-    color: #172033;
+    border: 1px solid var(--btn-border);
+    background: var(--btn-bg);
+    color: var(--btn-text);
     border-radius: 10px;
     padding: 10px 12px;
     font-weight: 600;
@@ -62,11 +102,11 @@ button, .toggle {
 }
 
 .panel {
-    background: white;
-    border: 1px solid #dce1ec;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
     border-radius: 16px;
     overflow: hidden;
-    box-shadow: 0 8px 24px rgba(32, 45, 72, 0.08);
+    box-shadow: 0 8px 24px var(--panel-shadow);
 }
 
 .console-panel {
@@ -75,7 +115,7 @@ button, .toggle {
 
 .panel-header {
     padding: 14px 16px;
-    border-bottom: 1px solid #e8ecf4;
+    border-bottom: 1px solid var(--header-border);
     font-weight: 700;
     display: flex;
     justify-content: space-between;
@@ -105,14 +145,16 @@ textarea {
     font-size: 14px;
     line-height: 1.45;
     outline: none;
+    background: var(--field-bg);
+    color: var(--field-text);
 }
 
 .console-output {
     min-height: 180px;
     max-height: 300px;
-    border-top: 1px solid #e8ecf4;
-    background: #0f172a;
-    color: #e2e8f0;
+    border-top: 1px solid var(--header-border);
+    background: var(--console-bg);
+    color: var(--console-text);
 }
 
 .preview-wrap {
@@ -247,9 +289,9 @@ textarea {
 }
 
 #errorBox {
-    color: #a40000;
-    background: #fff1f1;
-    border: 1px solid #f0b9b9;
+    color: var(--error-text);
+    background: var(--error-bg);
+    border: 1px solid var(--error-border);
     border-radius: 10px;
     padding: 10px;
     margin-bottom: 12px;
@@ -258,7 +300,7 @@ textarea {
 }
 
 .small-note {
-    color: #68758a;
+    color: var(--note);
     font-size: 13px;
 }
 

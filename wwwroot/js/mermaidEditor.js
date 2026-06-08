@@ -24,11 +24,12 @@ window.mermaidVariableEditor = (() => {
     let nodeOverlays = []; // { id, el, g }
     let edgeButtons = [];  // { from, to, el }
     let controlsVisible = true;
+    let currentTheme = "default";
     const connect = { active: false, fromId: "", x: 0, y: 0 };
 
     function init() {
         if (!initialized) {
-            mermaid.initialize({ startOnLoad: false, securityLevel: "loose", theme: "default" });
+            mermaid.initialize({ startOnLoad: false, securityLevel: "loose", theme: currentTheme });
             initialized = true;
         }
     }
@@ -376,6 +377,22 @@ window.mermaidVariableEditor = (() => {
 
     function toggleControls() {
         return setControlsVisible(!controlsVisible);
+    }
+
+    // Switch between light and dark themes (page + Mermaid diagram).
+    function setTheme(dark) {
+        currentTheme = dark ? "dark" : "default";
+        document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+
+        // Force Mermaid to re-initialize with the new theme, then re-render.
+        initialized = false;
+        init();
+
+        if (currentSource) {
+            render(currentSource, currentShowIds);
+        }
+
+        return dark;
     }
 
     // Rebuild overlays + edge buttons from the current SVG and source.
@@ -869,5 +886,5 @@ window.mermaidVariableEditor = (() => {
         }).join("\n");
     }
 
-    return { render, zoomIn, zoomOut, resetZoom, clearErrors, setControlsVisible, toggleControls };
+    return { render, zoomIn, zoomOut, resetZoom, clearErrors, setControlsVisible, toggleControls, setTheme };
 })();
