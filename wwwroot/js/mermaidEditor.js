@@ -54,6 +54,10 @@ window.mermaidVariableEditor = (() => {
     // fills it with that color. Cleared back to normal right after one application.
     let paintColor = null;
 
+    // The most recently selected color. Unlike paintColor, this is NOT cleared after
+    // the bucket is applied, so the color bar always keeps that swatch outlined.
+    let lastColor = null;
+
     function init() {
         if (!initialized) {
             mermaid.initialize({ startOnLoad: false, securityLevel: "loose", theme: currentTheme });
@@ -824,6 +828,9 @@ window.mermaidVariableEditor = (() => {
             if (color === paintColor) {
                 sw.classList.add("selected");
             }
+            if (color === lastColor) {
+                sw.classList.add("last-selected");
+            }
             sw.addEventListener("pointerdown", e => e.stopPropagation());
             sw.addEventListener("click", e => {
                 e.stopPropagation();
@@ -836,9 +843,13 @@ window.mermaidVariableEditor = (() => {
 
     function selectPaintColor(color, swatchEl) {
         paintColor = color;
+        lastColor = color;
         const bar = document.getElementById("colorBar");
         if (bar) {
-            bar.querySelectorAll(".color-swatch").forEach(s => s.classList.toggle("selected", s === swatchEl));
+            bar.querySelectorAll(".color-swatch").forEach(s => {
+                s.classList.toggle("selected", s === swatchEl);
+                s.classList.toggle("last-selected", s === swatchEl);
+            });
         }
         const layer = document.getElementById("interactionLayer");
         if (layer) {
@@ -851,6 +862,8 @@ window.mermaidVariableEditor = (() => {
         paintColor = null;
         const bar = document.getElementById("colorBar");
         if (bar) {
+            // Only drop the armed "selected" state; keep "last-selected" so the bar
+            // continues to show the most recently chosen color outlined.
             bar.querySelectorAll(".color-swatch.selected").forEach(s => s.classList.remove("selected"));
         }
         const layer = document.getElementById("interactionLayer");
@@ -1350,5 +1363,58 @@ window.mermaidVariableEditor = (() => {
         }).join("\n");
     }
 
-    return { render, zoomIn, zoomOut, resetZoom, clearErrors, setControlsVisible, toggleControls, setColorsVisible, setTheme, copyToClipboard, setMode, toggleFullscreen };
+    // Smallest width (px) the source panel may shrink to while dragging the divider.
+    const MIN_PANEL_PX = 320;
+    // The preview panel keeps at least twice that width so the diagram stays usable.
+    const MIN_PREVIEW_PX = MIN_PANEL_PX * 2.5;
+    let resizerBound = false;
+
+    // Wires up the draggable divider between the source and preview panels. Dragging
+    // sets --source-width on .grid so the two panels resize inversely. Clamped so
+    // neither panel shrinks below MIN_PANEL_PX.
+    function initResizer() {
+        if (resizerBound) return;
+        const resizer = document.getElementById("gridResizer");
+        const grid = resizer ? resizer.closest(".grid") : null;
+        if (!resizer || !grid) return;
+        resizerBound = true;
+
+        let dragging = false;
+
+        const onMove = (e) => {
+            if (!dragging) return;
+            const rect = grid.getBoundingClientRect();
+            const styles = getComputedStyle(grid);
+            const gap = parseFloat(styles.columnGap) || 0;
+            const resizerWidth = resizer.offsetWidth;
+            // Total width available for the two panels (excludes the resizer and both gaps).
+            const usable = rect.width - resizerWidth - gap * 2;
+            let left = e.clientX - rect.left - resizerWidth / 2 - gap;
+            const max = usable - MIN_PREVIEW_PX;
+            if (left < MIN_PANEL_PX) left = MIN_PANEL_PX;
+            if (left > max) left = max;
+            grid.style.setProperty("--source-width", left + "px");
+            e.preventDefault();
+        };
+
+        const onUp = () => {
+            if (!dragging) return;
+            dragging = false;
+            resizer.classList.remove("dragging");
+            document.body.classList.remove("grid-resizing");
+            window.removeEventListener("pointermove", onMove);
+            window.removeEventListener("pointerup", onUp);
+        };
+
+        resizer.addEventListener("pointerdown", (e) => {
+            dragging = true;
+            resizer.classList.add("dragging");
+            document.body.classList.add("grid-resizing");
+            window.addEventListener("pointermove", onMove);
+            window.addEventListener("pointerup", onUp);
+            e.preventDefault();
+        });
+    }
+
+    return { render, zoomIn, zoomOut, resetZoom, clearErrors, setControlsVisible, toggleControls, setColorsVisible, setTheme, copyToClipboard, setMode, toggleFullscreen, initResizer };
 })();

@@ -76,6 +76,8 @@
             <textarea id="mermaidSourceInput" @bind="MermaidSource" @bind:event="oninput" @bind:after="RenderDiagram"></textarea>
         </section>
 
+        <div class="grid-resizer" id="gridResizer" role="separator" aria-orientation="vertical" title="Drag to resize"></div>
+
         <section class="panel" id="previewPanel">
             <div class="panel-header">
                 <span>Preview</span>
@@ -177,6 +179,7 @@ end
         if (firstRender)
         {
             await RenderDiagram();
+            await JS.InvokeVoidAsync("mermaidVariableEditor.initResizer");
         }
     }
 
