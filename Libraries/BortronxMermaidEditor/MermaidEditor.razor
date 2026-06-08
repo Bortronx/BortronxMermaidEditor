@@ -1,0 +1,673 @@
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<div class="mermaid-editor page @(CurrentMode == AppMode.DataFlow ? "mode-dfd" : "")">
+    <div class="header">
+        <div>
+            <h1>
+                Bortronx Mermaid Editor
+                @if (CurrentMode == AppMode.DataFlow)
+                {
+                    <span class="mode-badge">Data Flow Mode</span>
+                }
+            </h1>
+            <p>Toggle Mermaid node IDs in the preview without changing your original code.</p>
+        </div>
+        <div class="toolbar">
+            <label class="toggle mode-select">
+                Mode
+                <select @bind="CurrentMode" @bind:after="OnModeChanged">
+                    <option value="@AppMode.Standard">Standard</option>
+                    <option value="@AppMode.DataFlow">Data Flow Diagram Mode</option>
+                </select>
+            </label>
+            <button type="button" @onclick="ToggleTheme">@(IsDark ? "Light mode" : "Dark mode")</button>
+            <button type="button" class="icon-btn" title="Undo (Ctrl+Z)" aria-label="Undo" @onclick="Undo" disabled="@(!CanUndo)">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polyline points="1 4 1 10 7 10" />
+                    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+                </svg>
+            </button>
+            <button type="button" class="icon-btn" title="Redo (Ctrl+Y)" aria-label="Redo" @onclick="Redo" disabled="@(!CanRedo)">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polyline points="23 4 23 10 17 10" />
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    @if (CurrentMode == AppMode.DataFlow)
+    {
+        <div class="dfd-bar">
+            <span class="dfd-title">Data Flow tools</span>
+            <button type="button" @onclick="InsertEntity" title='Mermaid default box: ["Entity"]'>+ Entity</button>
+            <button type="button" @onclick="InsertProcess" title="Mermaid subroutine shape: p1[[Process]]">+ Process</button>
+            <button type="button" @onclick="InsertDataStore" title="Mermaid database node: d1[(DataStore)]">+ Data Store</button>
+            <button type="button" @onclick="InsertDataFlow" title="Labeled arrow: A --&gt;|Data Name| B">+ Data Flow</button>
+            <span class="dfd-sep"></span>
+            <button type="button" @onclick="LoadDfdTemplate" title="Replace the editor with a Data Flow Diagram starter">Load DFD template</button>
+            <button type="button" @onclick="() => ShowLegendPanel = !ShowLegendPanel" title="Show or hide the legend definitions section">@(ShowLegendPanel ? "Hide legend definitions" : "Show legend definitions")</button>
+            <div class="dfd-legend">
+                <span><span class="swatch entity"></span>Entity <code>["Name"]</code></span>
+                <span><span class="swatch process"></span>Process <code>p1[["Name"]]</code></span>
+                <span><span class="swatch store"></span>Data Store <code>d1[("Name")]</code></span>
+                <span><span class="swatch flow"></span>Data Flow <code>--&gt;|Name|</code></span>
+            </div>
+        </div>
+
+        @if (ShowLegendPanel)
+        {
+            <div class="dfd-legend-panel">
+                <div class="dfd-legend-head">
+                    <span class="dfd-title">Legend definitions</span>
+                    <span class="small-note">Describe what Entities, Processes, Data Stores, and Data Flows mean. Insert it as a Legend node or copy it.</span>
+                    <div class="dfd-legend-actions">
+                        <button type="button" @onclick="UpdateLegend">Update legend</button>
+                        <button type="button" @onclick="InsertLegend">Insert legend into diagram</button>
+                        <button type="button" @onclick="RemoveLegend">Remove legend</button>
+                        <button type="button" @onclick="CopyLegend">@CopyLegendLabel</button>
+                    </div>
+                </div>
+                <textarea class="dfd-legend-text" @bind="LegendDefinitions" @bind:event="oninput"
+                          spellcheck="false"
+                          placeholder="One definition per line, e.g. Data Store: A place where data is saved, stored, or retrieved."></textarea>
+            </div>
+        }
+    }
+
+    <div class="grid">
+        <section class="panel">
+            <div class="panel-header">
+                <span>Mermaid source</span>
+                <span class="small-note">Your code stays unchanged</span>
+            </div>
+            <textarea id="mermaidSourceInput" value="@MermaidSource" @oninput="OnSourceInput"></textarea>
+        </section>
+
+        <div class="grid-resizer" id="gridResizer" role="separator" aria-orientation="vertical" title="Drag to resize"></div>
+
+        <section class="panel" id="previewPanel">
+            <div class="panel-header">
+                <span>Preview</span>
+                <div class="preview-actions">
+                    <span class="small-note">Drag a node to connect · double-click to edit · hover for delete</span>
+                    <label class="toggle">
+                        <input type="checkbox" @bind="ShowVariableNames" @bind:after="RenderDiagram" />
+                        Show variable names
+                    </label>
+                    <button type="button" @onclick="ToggleControls">@(ControlsVisible ? "Hide controls" : "Show controls")</button>
+                    @if (ControlsVisible)
+                    {
+                        <button type="button" @onclick="ToggleColors">@(ColorsVisible ? "Hide colors" : "Show colors")</button>
+                    }
+                    <button type="button" @onclick="ZoomOut">-</button>
+                    <button type="button" @onclick="ResetZoom">Reset</button>
+                    <button type="button" @onclick="ZoomIn">+</button>
+                    <button type="button" class="icon-btn" title="Fullscreen preview" aria-label="Fullscreen preview" @onclick="ToggleFullscreen">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+                            <path d="M16 3h3a2 2 0 0 1 2 2v3" />
+                            <path d="M8 21H5a2 2 0 0 1-2-2v-3" />
+                            <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="preview-wrap" id="previewViewport">
+                <div id="errorBox"></div>
+                <div id="diagramPreview"></div>
+            </div>
+        </section>
+    </div>
+
+    <section class="panel console-panel">
+        <div class="panel-header">
+            <span>Console</span>
+            <div class="preview-actions">
+                <span class="small-note">Copy from here when Mermaid parsing fails</span>
+                <button type="button" @onclick="ClearErrorConsole">Clear</button>
+            </div>
+        </div>
+        <textarea id="errorConsole" class="console-output" readonly placeholder="No errors yet."></textarea>
+    </section>
+</div>
+
+@code {
+    private enum AppMode { Standard, DataFlow }
+
+    private AppMode CurrentMode { get; set; } = AppMode.Standard;
+    private bool ShowVariableNames { get; set; }
+    private bool ControlsVisible { get; set; } = true;
+    private bool ColorsVisible { get; set; } = true;
+    private bool IsDark { get; set; }
+
+    // Tracks recently inserted Data Flow node ids so "+ Data Flow" can link the last two.
+    private readonly List<string> _recentDfdIds = new();
+
+    private string CopyLegendLabel { get; set; } = "Copy legend";
+
+    // The legend definitions section is hidden until toggled from the Data Flow tools.
+    private bool ShowLegendPanel { get; set; }
+
+    // Editable legend definitions for the Data Flow Diagram's Data Stores and Data
+    // Flows (one "Label: description" per line). Use "Update legend" to sync labels.
+    private string LegendDefinitions { get; set; } = "";
+
+    private string MermaidSource { get; set; } = @"
+flowchart TD
+    A[Start] --> B{Choose an Option}
+    B -->|Option A| C[Go to Page A]
+    B -->|Option B| D[Go to Page B]
+    C --> E[Finish]
+    D --> E[Finish]
+";
+
+    // ----- Undo / redo history -----
+    // Every change to MermaidSource (typing, interactive node edits, and the Data Flow
+    // tool buttons) is captured as a snapshot. Rapid typing is coalesced into a single
+    // undo step via a short debounce so undo doesn't step one character at a time.
+    private readonly Stack<string> _undoStack = new();
+    private readonly Stack<string> _redoStack = new();
+    private string _committedSource = "";
+    private bool _typingBurstActive;
+    private System.Threading.Timer? _typingTimer;
+    private DotNetObjectReference<MermaidEditor>? _selfRef;
+    private const int TypingCommitDelayMs = 600;
+
+    private bool CanUndo => _typingBurstActive || _undoStack.Count > 0;
+    private bool CanRedo => _redoStack.Count > 0;
+
+    protected override void OnInitialized()
+    {
+        _committedSource = MermaidSource;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Lazily load the editor's CSS, the Mermaid CDN library, and the editor
+            // script so this component is drop-in for any Blazor app (no index.html edits).
+            var loader = await JS.InvokeAsync<IJSObjectReference>(
+                "import", "./_content/BortronxMermaidEditor/js/mermaidEditorLoader.js");
+            await loader.InvokeVoidAsync("ensureLoaded");
+
+            await RenderDiagram();
+            await JS.InvokeVoidAsync("mermaidVariableEditor.initResizer");
+
+            // Wire up Ctrl+Z / Ctrl+Y (and Cmd on macOS) keyboard shortcuts.
+            _selfRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("mermaidVariableEditor.registerUndoRedo", _selfRef);
+        }
+    }
+
+    // Handles every edit to the source textarea, whether typed by the user or applied
+    // by the interactive preview (which dispatches an input event on this textarea).
+    private async Task OnSourceInput(ChangeEventArgs e)
+    {
+        var newValue = e.Value?.ToString() ?? "";
+        if (newValue == MermaidSource)
+        {
+            return;
+        }
+
+        // On the first edit of a burst, snapshot the committed baseline as an undo step.
+        if (!_typingBurstActive)
+        {
+            _undoStack.Push(_committedSource);
+            _redoStack.Clear();
+            _typingBurstActive = true;
+        }
+
+        MermaidSource = newValue;
+        RestartTypingTimer();
+        await RenderDiagram();
+    }
+
+    // (Re)starts the debounce that finalizes a typing burst once edits pause.
+    private void RestartTypingTimer()
+    {
+        _typingTimer?.Dispose();
+        _typingTimer = new System.Threading.Timer(_ =>
+        {
+            _ = InvokeAsync(() =>
+            {
+                _committedSource = MermaidSource;
+                _typingBurstActive = false;
+                StateHasChanged();
+            });
+        }, null, TypingCommitDelayMs, System.Threading.Timeout.Infinite);
+    }
+
+    // Finalizes any in-progress typing burst so its current text becomes the baseline.
+    private void FinalizeTypingBurst()
+    {
+        _typingTimer?.Dispose();
+        _typingTimer = null;
+        if (_typingBurstActive)
+        {
+            _committedSource = MermaidSource;
+            _typingBurstActive = false;
+        }
+    }
+
+    // Applies a discrete source edit (Data Flow tools, legend changes) as its own
+    // undo step and re-renders the diagram.
+    private async Task ApplySourceEdit(string newSource)
+    {
+        FinalizeTypingBurst();
+        if (newSource != MermaidSource)
+        {
+            _undoStack.Push(MermaidSource);
+            _redoStack.Clear();
+        }
+        MermaidSource = newSource;
+        _committedSource = newSource;
+        await RenderDiagram();
+    }
+
+    [JSInvokable]
+    public Task UndoFromJs() => Undo();
+
+    [JSInvokable]
+    public Task RedoFromJs() => Redo();
+
+    private async Task Undo()
+    {
+        FinalizeTypingBurst();
+        if (_undoStack.Count == 0)
+        {
+            return;
+        }
+
+        _redoStack.Push(MermaidSource);
+        var previous = _undoStack.Pop();
+        MermaidSource = previous;
+        _committedSource = previous;
+        await RenderDiagram();
+        StateHasChanged();
+    }
+
+    private async Task Redo()
+    {
+        FinalizeTypingBurst();
+        if (_redoStack.Count == 0)
+        {
+            return;
+        }
+
+        _undoStack.Push(MermaidSource);
+        var next = _redoStack.Pop();
+        MermaidSource = next;
+        _committedSource = next;
+        await RenderDiagram();
+        StateHasChanged();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _typingTimer?.Dispose();
+        try
+        {
+            await JS.InvokeVoidAsync("mermaidVariableEditor.unregisterUndoRedo");
+        }
+        catch (JSException)
+        {
+            // The editor script may already be gone during teardown; ignore.
+        }
+        catch (JSDisconnectedException)
+        {
+            // Circuit/runtime disconnected during teardown; nothing to clean up.
+        }
+        _selfRef?.Dispose();
+    }
+
+    private async Task RenderDiagram()
+    {
+        // Keep the JS editor in sync with the active mode so the create-node prompt
+        // offers the right node types (Data Flow types vs. generic types).
+        await JS.InvokeVoidAsync("mermaidVariableEditor.setMode",
+            CurrentMode == AppMode.DataFlow ? "dataflow" : "standard");
+        await JS.InvokeVoidAsync("mermaidVariableEditor.render", MermaidSource, ShowVariableNames);
+    }
+
+    private async Task ZoomIn()
+    {
+        await JS.InvokeVoidAsync("mermaidVariableEditor.zoomIn");
+    }
+
+    private async Task ZoomOut()
+    {
+        await JS.InvokeVoidAsync("mermaidVariableEditor.zoomOut");
+    }
+
+    private async Task ResetZoom()
+    {
+        await JS.InvokeVoidAsync("mermaidVariableEditor.resetZoom");
+    }
+
+    private async Task ToggleFullscreen()
+    {
+        await JS.InvokeVoidAsync("mermaidVariableEditor.toggleFullscreen", "previewPanel");
+    }
+
+    private async Task ToggleControls()
+    {
+        ControlsVisible = !ControlsVisible;
+        await JS.InvokeVoidAsync("mermaidVariableEditor.setControlsVisible", ControlsVisible);
+    }
+
+    private async Task ToggleColors()
+    {
+        ColorsVisible = !ColorsVisible;
+        await JS.InvokeVoidAsync("mermaidVariableEditor.setColorsVisible", ColorsVisible);
+    }
+
+    private async Task ToggleTheme()
+    {
+        IsDark = !IsDark;
+        await JS.InvokeVoidAsync("mermaidVariableEditor.setTheme", IsDark);
+    }
+
+    private async Task ClearErrorConsole()
+    {
+        await JS.InvokeVoidAsync("mermaidVariableEditor.clearErrors");
+    }
+
+    // ----- Mode menu -----
+
+    private async Task OnModeChanged()
+    {
+        // The light/dark toggle applies to every mode. The Data Flow theme has its
+        // own light and dark teal variants, so we just re-render with the current theme.
+        await RenderDiagram();
+    }
+
+    // ----- Data Flow Diagram tools -----
+
+    private int NextId(string prefix)
+    {
+        var rx = new Regex($@"\b{prefix}(\d+)\b");
+        var max = 0;
+        foreach (Match m in rx.Matches(MermaidSource))
+        {
+            if (int.TryParse(m.Groups[1].Value, out var n) && n > max)
+            {
+                max = n;
+            }
+        }
+        return max + 1;
+    }
+
+    private async Task AddDfdNode(string id, string shape)
+    {
+        _recentDfdIds.Add(id);
+        await ApplySourceEdit(MermaidSource.TrimEnd() + "\n" + id + shape + "\n");
+    }
+
+    private Task InsertEntity()
+    {
+        var n = NextId("e");
+        return AddDfdNode($"e{n}", $"[\"Entity {n}\"]");
+    }
+
+    private Task InsertProcess()
+    {
+        var n = NextId("p");
+        return AddDfdNode($"p{n}", $"[[\"Process {n}\"]]");
+    }
+
+    private Task InsertDataStore()
+    {
+        var n = NextId("d");
+        return AddDfdNode($"d{n}", $"[(\"Data Store {n}\")]");
+    }
+
+    private async Task InsertDataFlow()
+    {
+        // Number flow labels so each new one is distinct (e.g. "Data Flow 1").
+        var n = Regex.Matches(MermaidSource, "\\|[^|]+\\|").Count + 1;
+        string line;
+        if (_recentDfdIds.Count >= 2)
+        {
+            var to = _recentDfdIds[^1];
+            var from = _recentDfdIds[^2];
+            line = $"{from} -->|Data Flow {n}| {to}";
+        }
+        else
+        {
+            line = $"e1[\"Source\"] -->|Data Flow {n}| p1[[\"Process\"]]";
+        }
+
+        await ApplySourceEdit(MermaidSource.TrimEnd() + "\n" + line + "\n");
+    }
+
+    private async Task LoadDfdTemplate()
+    {
+        _recentDfdIds.Clear();
+        _recentDfdIds.AddRange(new[] { "e1", "p1", "d1", "p2" });
+        await ApplySourceEdit(DfdTemplate);
+    }
+
+    // ----- Legend node -----
+
+    private string BuildLegendNode()
+    {
+        // Only emit "Label: description" lines; skip category headers (lines with no ':').
+        var body = string.Join("<br/><br/>\n",
+            LegendDefinitions
+                .Replace("\"", "&quot;")
+                .Split('\n')
+                .Select(l => l.TrimEnd())
+                .Where(l => l.Contains(":")
+                            && !l.TrimStart().StartsWith("#")
+                            && !l.Contains("[removed]")));
+
+        return "LEGEND[\"Legend<br/><br/>\n" + body + "\"]";
+    }
+
+    private string BuildLegendSnippet()
+    {
+        var node = BuildLegendNode();
+        if (_recentDfdIds.Count > 0)
+        {
+            node += $"\n\n{_recentDfdIds[^1]} ~~~ LEGEND";
+        }
+        return node;
+    }
+
+    private static string StripLegend(string src)
+    {
+        // Remove an existing LEGEND node definition and any invisible connector to it.
+        src = Regex.Replace(src, "LEGEND\\[\"[\\s\\S]*?\"\\]", "", RegexOptions.IgnoreCase);
+        src = Regex.Replace(src, @"(?m)^.*~~~\s*LEGEND.*$\r?\n?", "");
+        return src.TrimEnd();
+    }
+
+    private static string StripComments(string src)
+    {
+        // Drop Mermaid %% comments so their text isn't scanned as nodes/flows.
+        return Regex.Replace(src, "%%.*", "");
+    }
+
+    private async Task InsertLegend()
+    {
+        await ApplySourceEdit(StripLegend(MermaidSource) + "\n\n" + BuildLegendSnippet() + "\n");
+    }
+
+    private async Task RemoveLegend()
+    {
+        await ApplySourceEdit(StripLegend(MermaidSource) + "\n");
+    }
+
+    private async Task CopyLegend()
+    {
+        var ok = await JS.InvokeAsync<bool>("mermaidVariableEditor.copyToClipboard", BuildLegendSnippet());
+        CopyLegendLabel = ok ? "Copied!" : "Copy failed";
+        StateHasChanged();
+        await Task.Delay(1500);
+        CopyLegendLabel = "Copy legend";
+        StateHasChanged();
+    }
+
+    // Scans the current Mermaid source and rebuilds the legend grouped into categories
+    // (Data Flows, Data Stores, Entities). Comment lines are ignored, existing
+    // descriptions (text after ':') are preserved, and new items get a blank description.
+    private async Task UpdateLegend()
+    {
+        var source = StripComments(StripLegend(MermaidSource));
+
+        var flows = new List<string>();
+        var stores = new List<string>();
+        var entities = new List<string>();
+
+        static void Add(List<string> list, string label)
+        {
+            label = label.Trim();
+            if (label.Length > 0 && !list.Contains(label)) list.Add(label);
+        }
+
+        // Data Stores: id[("...")]
+        foreach (Match m in Regex.Matches(source, "\\[\\(\"([^\"]+)\"\\)\\]"))
+            Add(stores, m.Groups[1].Value);
+
+        // Data Flows: edge labels |...|
+        foreach (Match m in Regex.Matches(source, "\\|([^|]+)\\|"))
+            Add(flows, m.Groups[1].Value);
+
+        // Entities: id["..."] (plain single bracket; not [[..]] processes, not [(..)] stores).
+        foreach (Match m in Regex.Matches(source, "(?<![\\[\\(])\\[\"([^\"]+)\"\\](?![\\]\\)])"))
+        {
+            var label = m.Groups[1].Value;
+            if (!label.StartsWith("Legend", StringComparison.OrdinalIgnoreCase))
+                Add(entities, label);
+        }
+
+        // Preserve existing descriptions from the legend textarea AND from a LEGEND node
+        // already embedded in the diagram, so a definition typed in either place is kept.
+        var existing = ParseLegendDescriptions();
+        MergeDescriptions(existing, ExtractDiagramLegendText(MermaidSource));
+
+        // Rebuild the legend text grouped by category.
+        var lines = new List<string>();
+        void Section(string header, List<string> labels)
+        {
+            if (labels.Count == 0) return;
+            if (lines.Count > 0) lines.Add("");
+            lines.Add(header);
+            foreach (var label in labels)
+            {
+                var desc = existing.TryGetValue(label, out var d) ? d : "";
+                lines.Add($"{label}: {desc}".TrimEnd());
+            }
+        }
+
+        Section("Data Flows", flows);
+        Section("Data Stores", stores);
+        Section("Entities", entities);
+
+        LegendDefinitions = string.Join("\n", lines);
+        await Task.CompletedTask;
+        StateHasChanged();
+    }
+
+    // Order of legend items as parsed from the current legend text (flat).
+    private readonly List<string> _legendOrder = new();
+
+    // Parses the legend textarea into a label -> description map, recording item order.
+    private Dictionary<string, string> ParseLegendDescriptions()
+    {
+        var map = new Dictionary<string, string>();
+        _legendOrder.Clear();
+        ParseLegendText(LegendDefinitions, map, _legendOrder);
+        return map;
+    }
+
+    // Core legend-text parser. Fills the description map and the order list.
+    private static void ParseLegendText(string text, Dictionary<string, string> map, List<string> order)
+    {
+        foreach (var raw in text.Split('\n'))
+        {
+            var line = raw.Trim();
+            if (line.Length == 0 || line.StartsWith("#")) continue;
+
+            var idx = line.IndexOf(':');
+            if (idx < 0) continue;
+
+            var label = line.Substring(0, idx).Trim();
+            var desc = line.Substring(idx + 1).Trim();
+            if (desc.StartsWith("[removed]"))
+                desc = desc.Substring("[removed]".Length).Trim();
+            if (label.Length == 0) continue;
+
+            map[label] = desc;
+            if (!order.Contains(label)) order.Add(label);
+        }
+    }
+
+    // Reads a LEGEND node already present in the diagram and returns its legend text in
+    // the same line-based format as the textarea ("label: description").
+    private static string ExtractDiagramLegendText(string src)
+    {
+        var m = Regex.Match(src, "LEGEND\\[\"([\\s\\S]*?)\"\\]", RegexOptions.IgnoreCase);
+        if (!m.Success) return "";
+
+        var content = m.Groups[1].Value
+            .Replace("&quot;", "\"")
+            .Replace("<br/>", "\n")
+            .Replace("<br>", "\n");
+
+        // Drop the leading "Legend" title line produced by BuildLegendNode.
+        var lines = content.Split('\n')
+            .Where(l => !string.Equals(l.Trim(), "Legend", StringComparison.OrdinalIgnoreCase));
+
+        return string.Join("\n", lines);
+    }
+
+    // Merges descriptions parsed from the in-diagram legend into the existing map. A
+    // non-empty description from the diagram fills in a blank one; existing non-empty
+    // descriptions are never overwritten.
+    private void MergeDescriptions(Dictionary<string, string> existing, string diagramLegendText)
+    {
+        if (string.IsNullOrWhiteSpace(diagramLegendText)) return;
+
+        var diagramMap = new Dictionary<string, string>();
+        var diagramOrder = new List<string>();
+        ParseLegendText(diagramLegendText, diagramMap, diagramOrder);
+
+        foreach (var kvp in diagramMap)
+        {
+            if (!existing.TryGetValue(kvp.Key, out var current) || string.IsNullOrEmpty(current))
+                existing[kvp.Key] = kvp.Value;
+        }
+
+        // Remember the order of items that only existed in the in-diagram legend.
+        foreach (var label in diagramOrder)
+            if (!_legendOrder.Contains(label)) _legendOrder.Add(label);
+    }
+
+    private const string DfdTemplate = @"flowchart TD
+%% Data Flow Diagram
+%% Entity [""Name""]  |  Process p#[[""Name""]]  |  Data Store d#[(""Name"")]  |  Data Flow -->|Name|
+
+%% Nodes
+e1[""External Entity""]
+p1[[""Get Data""]]
+d1[(""Data Collection"")]
+p2[[""Process Data""]]
+
+%% Flows
+e1 -->|Input Data| p1
+p1 --> d1
+d1 -->|Stored Records| p2
+
+LEGEND[""Legend<br/><br/>
+Entity: An external source or destination of data.<br/><br/>
+Process: A step that transforms incoming data into outgoing data.<br/><br/>
+Data Store: A place where data is saved, stored, or retrieved.<br/><br/>
+Data Flow: The movement of data from one part of the system to another.""]
+
+p2 ~~~ LEGEND
+";
+}

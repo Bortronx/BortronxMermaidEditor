@@ -1,0 +1,12 @@
+<Project>
+  <!--
+    Single source of truth for the shared C# class libraries that live in this repo
+    (Libraries\BortronxMermaidEditor, Libraries\StringCharMod, Libraries\Web\FileUtility).
+
+    Every ProjectReference to a library uses $(LibrariesRoot), so relocating the
+    libraries only requires editing THIS one line.
+  -->
+  <PropertyGroup>
+    <LibrariesRoot>$(MSBuildThisFileDirectory)Libraries\</LibrariesRoot>
+  </PropertyGroup>
+</Project>

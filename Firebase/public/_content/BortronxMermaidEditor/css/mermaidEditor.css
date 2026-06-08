@@ -1,0 +1,782 @@
+:root {
+    --bg: #f4f6fb;
+    --text: #172033;
+    --muted: #526071;
+    --note: #68758a;
+    --panel-bg: #ffffff;
+    --panel-border: #dce1ec;
+    --panel-shadow: rgba(32, 45, 72, 0.08);
+    --header-border: #e8ecf4;
+    --btn-bg: #ffffff;
+    --btn-border: #c6ccda;
+    --btn-text: #172033;
+    --field-bg: #ffffff;
+    --field-text: #172033;
+    --console-bg: #0f172a;
+    --console-text: #e2e8f0;
+    --error-bg: #fff1f1;
+    --error-border: #f0b9b9;
+    --error-text: #a40000;
+    --accent: #2563eb;
+}
+
+/* Scope the base typography/colors to the editor wrapper instead of :root so the
+   consuming app's global styles are not affected. */
+.mermaid-editor {
+    font-family: Inter, Arial, sans-serif;
+    color: var(--text);
+    background: var(--bg);
+}
+
+:root[data-theme="dark"] {
+    --bg: #0b1120;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --note: #8595ad;
+    --panel-bg: #131c2e;
+    --panel-border: #263247;
+    --panel-shadow: rgba(0, 0, 0, 0.45);
+    --header-border: #263247;
+    --btn-bg: #1e293b;
+    --btn-border: #334155;
+    --btn-text: #e2e8f0;
+    --field-bg: #0f1729;
+    --field-text: #e2e8f0;
+    --console-bg: #05080f;
+    --console-text: #cbd5e1;
+    --error-bg: #3b1212;
+    --error-border: #7f1d1d;
+    --error-text: #fca5a5;
+}
+
+/* ----- Data Flow Diagram mode -----
+   Self-contained teal/cyan theme with both a light and a dark variant. The
+   variables are declared on the .page.mode-dfd element itself so they override
+   the inherited palette for this subtree, while still responding to the
+   light/dark toggle (data-theme on :root). Default below is the LIGHT variant. */
+.page.mode-dfd {
+    --bg: #e6f6f3;
+    --text: #0b3a36;
+    --muted: #3f726b;
+    --note: #4f827b;
+    --panel-bg: #f3fbfa;
+    --panel-border: #b3ddd6;
+    --panel-shadow: rgba(13, 148, 136, 0.15);
+    --header-border: #b3ddd6;
+    --btn-bg: #d6f0eb;
+    --btn-border: #8fccc2;
+    --btn-text: #0b3a36;
+    --field-bg: #ffffff;
+    --field-text: #0b3a36;
+    --console-bg: #e1f5f1;
+    --console-text: #0b3a36;
+    --error-bg: #fde8e8;
+    --error-border: #f5b5b5;
+    --error-text: #b91c1c;
+    --accent: #0d9488;
+
+    background: var(--bg);
+    color: var(--text);
+}
+
+/* DARK variant of the Data Flow Diagram theme. */
+:root[data-theme="dark"] .page.mode-dfd {
+    --bg: #07171c;
+    --text: #d7f3ee;
+    --muted: #8fb3ad;
+    --note: #7fa39d;
+    --panel-bg: #0f242b;
+    --panel-border: #1d4a52;
+    --panel-shadow: rgba(0, 0, 0, 0.5);
+    --header-border: #1d4a52;
+    --btn-bg: #123038;
+    --btn-border: #1f5560;
+    --btn-text: #d7f3ee;
+    --field-bg: #0b1f25;
+    --field-text: #d7f3ee;
+    --console-bg: #05161a;
+    --console-text: #b8e6df;
+    --error-bg: #3b1212;
+    --error-border: #7f1d1d;
+    --error-text: #fca5a5;
+    --accent: #14b8a6;
+}
+
+.mode-select {
+    gap: 6px;
+}
+
+.mode-select select {
+    border: 1px solid var(--btn-border);
+    background: var(--btn-bg);
+    color: var(--btn-text);
+    border-radius: 8px;
+    padding: 6px 8px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.mode-badge {
+    display: inline-block;
+    margin-left: 10px;
+    padding: 2px 10px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #ffffff;
+    background: var(--accent);
+    border-radius: 999px;
+    vertical-align: middle;
+}
+
+.dfd-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+    padding: 12px 16px;
+    background: var(--panel-bg);
+    border: 1px solid var(--accent);
+    border-radius: 14px;
+    box-shadow: 0 8px 24px var(--panel-shadow);
+}
+
+.dfd-bar .dfd-title {
+    font-weight: 700;
+    margin-right: 4px;
+    color: var(--accent);
+}
+
+.dfd-bar button {
+    padding: 7px 11px;
+    border-radius: 8px;
+}
+
+.dfd-sep {
+    width: 1px;
+    align-self: stretch;
+    background: var(--panel-border);
+    margin: 0 4px;
+}
+
+.dfd-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-left: auto;
+    font-size: 13px;
+    color: var(--muted);
+    align-items: center;
+}
+
+.dfd-legend code {
+    background: var(--field-bg);
+    color: var(--field-text);
+    padding: 2px 6px;
+    border-radius: 6px;
+    border: 1px solid var(--panel-border);
+}
+
+.dfd-legend .swatch {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-right: 6px;
+    vertical-align: middle;
+    border: 1px solid var(--accent);
+}
+
+.dfd-legend .swatch.entity {
+    border-radius: 2px;
+}
+
+.dfd-legend .swatch.process {
+    border-radius: 2px;
+    box-shadow: inset 3px 0 0 var(--accent), inset -3px 0 0 var(--accent);
+}
+
+.dfd-legend .swatch.store {
+    border-radius: 50% / 30%;
+}
+
+.dfd-legend .swatch.flow {
+    border: 0;
+    height: 0;
+    border-top: 2px solid var(--accent);
+    width: 16px;
+}
+
+.dfd-legend-panel {
+    margin-bottom: 16px;
+    padding: 12px 16px;
+    background: var(--panel-bg);
+    border: 1px solid var(--accent);
+    border-radius: 14px;
+    box-shadow: 0 8px 24px var(--panel-shadow);
+}
+
+.dfd-legend-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.dfd-legend-head .dfd-title {
+    color: var(--accent);
+}
+
+.dfd-legend-actions {
+    display: inline-flex;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.dfd-legend-actions button {
+    padding: 7px 11px;
+    border-radius: 8px;
+}
+
+.mermaid-editor .dfd-legend-text {
+    width: 100%;
+    min-height: 96px;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    resize: vertical;
+    font-family: Consolas, Monaco, monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    background: var(--field-bg);
+    color: var(--field-text);
+    outline: none;
+}
+
+.mermaid-editor.page {
+    min-height: 100vh;
+    padding: 24px;
+    box-sizing: border-box;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.header h1 {
+    margin: 0 0 4px 0;
+    font-size: 28px;
+}
+
+.header p {
+    margin: 0;
+    color: var(--muted);
+}
+
+.toolbar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+:where(.mermaid-editor) button, :where(.mermaid-editor) .toggle {
+    border: 1px solid var(--btn-border);
+    background: var(--btn-bg);
+    color: var(--btn-text);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+/* Icon-only buttons (e.g. undo/redo in the toolbar, fullscreen in the preview bar)
+   center their SVG and size consistently with neighbouring text buttons. */
+.mermaid-editor .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 0;
+}
+
+.mermaid-editor .icon-btn svg {
+    display: block;
+}
+
+/* In the header toolbar, icon buttons stretch to match the height of the
+   neighbouring text buttons so the row stays visually even. */
+.mermaid-editor .toolbar .icon-btn {
+    align-self: stretch;
+}
+
+.mermaid-editor .icon-btn:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+.toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: var(--source-width, 42%) 10px 1fr;
+    gap: 16px;
+    align-items: stretch;
+}
+
+/* Draggable divider between the source and preview panels. Dragging it adjusts
+   --source-width on .grid, growing one panel as the other shrinks. */
+.grid-resizer {
+    align-self: stretch;
+    width: 10px;
+    cursor: col-resize;
+    border-radius: 6px;
+    background: var(--panel-border);
+    opacity: 0.5;
+    transition: opacity 0.15s ease, background 0.15s ease;
+    touch-action: none;
+}
+
+.grid-resizer:hover {
+    opacity: 1;
+    background: var(--accent);
+}
+
+.grid-resizer.dragging {
+    opacity: 1;
+    background: var(--accent);
+}
+
+body.grid-resizing {
+    cursor: col-resize;
+    user-select: none;
+}
+
+.panel {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 8px 24px var(--panel-shadow);
+}
+
+.console-panel {
+    margin-top: 16px;
+}
+
+.panel-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--header-border);
+    font-weight: 700;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.preview-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.preview-actions button,
+.preview-actions .toggle {
+    height: 32px;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0 10px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.preview-actions .icon-btn {
+    padding: 0 8px;
+    line-height: 0;
+}
+
+:where(.mermaid-editor) textarea {
+    width: 100%;
+    min-height: 72vh;
+    border: 0;
+    padding: 16px;
+    box-sizing: border-box;
+    resize: vertical;
+    font-family: Consolas, Monaco, monospace;
+    font-size: 14px;
+    line-height: 1.45;
+    outline: none;
+    background: var(--field-bg);
+    color: var(--field-text);
+}
+
+.mermaid-editor .console-output {
+    min-height: 180px;
+    max-height: 300px;
+    border-top: 1px solid var(--header-border);
+    background: var(--console-bg);
+    color: var(--console-text);
+}
+
+.preview-wrap {
+    min-height: 72vh;
+    padding: 18px;
+    overflow: hidden;
+    position: relative;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+}
+
+.preview-wrap.dragging {
+    cursor: grabbing;
+}
+
+/* ----- Fullscreen preview panel ----- */
+#previewPanel:fullscreen {
+    display: flex;
+    flex-direction: column;
+    width: 100vw;
+    height: 100vh;
+    background: var(--bg);
+}
+
+#previewPanel:fullscreen .preview-wrap {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+#diagramPreview svg {
+    display: block;
+}
+
+#diagramPreview {
+    position: relative;
+    min-height: 100%;
+}
+
+/* Nodexr-style interaction layer */
+#interactionLayer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 4;
+}
+
+#interactionLayer.controls-hidden {
+    display: none;
+}
+
+/* ----- Paint bucket color bar (bottom of preview) ----- */
+#colorBar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 26px;
+    display: flex;
+    align-items: stretch;
+    pointer-events: auto;
+    z-index: 5;
+    border-top: 1px solid var(--panel-border);
+    background: var(--panel-bg);
+    box-shadow: 0 -4px 12px var(--panel-shadow);
+}
+
+#colorBar.colors-hidden {
+    display: none;
+}
+
+.color-swatch {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 100%;
+    padding: 0;
+    margin: 0;
+    border: none;
+    border-right: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 0;
+    cursor: pointer;
+}
+
+.color-swatch:last-child {
+    border-right: none;
+}
+
+.color-swatch:hover {
+    outline: 2px solid #2563eb;
+    outline-offset: -2px;
+    z-index: 1;
+}
+
+.color-swatch.selected {
+    outline: 3px solid #111827;
+    outline-offset: -3px;
+    z-index: 2;
+}
+
+/* The most recently selected color stays clearly outlined at all times, even after
+   the paint bucket has been applied, until a different color is picked. A strong
+   outline plus a light inner ring keeps it visible on any swatch hue. */
+.color-swatch.last-selected {
+    outline: 3px solid #111827;
+    outline-offset: -3px;
+    box-shadow: inset 0 0 0 2px #ffffff;
+    z-index: 3;
+}
+
+#interactionLayer.painting .node-overlay {
+    cursor: crosshair;
+}
+
+/* While a paint color is armed, the delete buttons must not intercept clicks meant
+   for the arrows/nodes underneath, so the paint bucket can reach the edge hit paths. */
+#interactionLayer.painting .node-delete,
+#interactionLayer.painting .edge-delete {
+    pointer-events: none;
+}
+
+#noodleSvg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+    display: none;
+}
+
+#tempNoodle {
+    fill: none;
+    stroke: #2563eb;
+    stroke-width: 2.5;
+    stroke-dasharray: 6 4;
+}
+
+.node-overlay {
+    position: absolute;
+    box-sizing: border-box;
+    border-radius: 6px;
+    pointer-events: auto;
+    cursor: crosshair;
+}
+
+.node-overlay:hover {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+    background: rgba(37, 99, 235, 0.06);
+}
+
+.node-overlay.connect-target {
+    outline: 2px solid #16a34a;
+    outline-offset: 2px;
+    background: rgba(22, 163, 74, 0.12);
+}
+
+.mermaid-editor .node-delete {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    box-sizing: border-box;
+    line-height: 1;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 13px;
+    text-align: center;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    border: 1px solid #b91c1c;
+    background: #fff1f2;
+    color: #991b1b;
+    display: none;
+    pointer-events: auto;
+}
+
+.mermaid-editor .node-overlay:hover .node-delete {
+    display: flex;
+}
+
+.mermaid-editor .edge-delete {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    box-sizing: border-box;
+    line-height: 1;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 13px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    border: 1px solid #b91c1c;
+    background: #fff1f2;
+    color: #991b1b;
+    pointer-events: auto;
+    opacity: 0.25;
+    transition: opacity 0.15s ease;
+}
+
+.preview-wrap:hover .edge-delete {
+    opacity: 0.85;
+}
+
+.edge-delete:hover {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.15);
+}
+
+/* Pulse the arrow whose delete button is being hovered, so it's obvious which
+   connection is about to be removed. */
+@keyframes edgeDeletePulse {
+    0%, 100% { stroke: #ef4444; stroke-width: 4px; }
+    50% { stroke: #b91c1c; stroke-width: 6px; }
+}
+
+#diagramPreview g.edgePaths > path.edge-highlight {
+    stroke: #ef4444 !important;
+    animation: edgeDeletePulse 0.7s ease-in-out infinite;
+}
+
+.node-label-editor {
+    position: absolute;
+    z-index: 6;
+    min-width: 120px;
+    border: 2px solid #2563eb;
+    border-radius: 8px;
+    padding: 6px 8px;
+    font-size: 14px;
+    box-shadow: 0 6px 18px rgba(37, 99, 235, 0.25);
+    pointer-events: auto;
+}
+
+/* ----- Create-connected-node modal (drag into empty space) ----- */
+.node-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.45);
+}
+
+.node-modal {
+    width: min(380px, 90vw);
+    background: var(--panel-bg);
+    color: var(--text);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+    padding: 18px;
+}
+
+.node-modal-title {
+    font-weight: 700;
+    font-size: 16px;
+    margin-bottom: 12px;
+}
+
+.node-modal-types {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.node-type-btn {
+    border: 1px solid var(--btn-border);
+    background: var(--btn-bg);
+    color: var(--btn-text);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.node-type-btn.selected {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: #ffffff;
+}
+
+.node-modal-name {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid var(--panel-border);
+    background: var(--field-bg);
+    color: var(--field-text);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 14px;
+    margin-bottom: 16px;
+}
+
+.node-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.node-modal-cancel,
+.node-modal-create {
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.node-modal-cancel {
+    border: 1px solid var(--btn-border);
+    background: var(--btn-bg);
+    color: var(--btn-text);
+}
+
+.node-modal-create {
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: #ffffff;
+}
+
+#errorBox {
+    color: var(--error-text);
+    background: var(--error-bg);
+    border: 1px solid var(--error-border);
+    border-radius: 10px;
+    padding: 10px;
+    margin-bottom: 12px;
+    white-space: pre-wrap;
+    display: none;
+}
+
+.small-note {
+    color: var(--note);
+    font-size: 13px;
+}
+
+@media (max-width: 900px) {
+    .grid { grid-template-columns: 1fr; }
+    .grid-resizer { display: none; }
+}
