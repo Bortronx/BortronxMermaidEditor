@@ -555,7 +555,7 @@ window.mermaidVariableEditor = (() => {
         });
 
         const edges = parseEdges(currentSource);
-        edges.forEach(edge => {
+        edges.forEach((edge, i) => {
             const el = document.createElement("button");
             el.type = "button";
             el.className = "edge-delete";
@@ -567,6 +567,9 @@ window.mermaidVariableEditor = (() => {
                 e.preventDefault();
                 applySource(removeEdge(currentSource, edge.from, edge.to));
             });
+            // Highlight the matching arrow while hovering its delete button.
+            el.addEventListener("pointerenter", () => setEdgeHighlight(i, true));
+            el.addEventListener("pointerleave", () => setEdgeHighlight(i, false));
             layer.appendChild(el);
             edgeButtons.push({ from: edge.from, to: edge.to, el });
         });
@@ -625,6 +628,20 @@ window.mermaidVariableEditor = (() => {
         svg.querySelectorAll("path.edge-hit").forEach(p => {
             p.style.pointerEvents = active ? "stroke" : "none";
         });
+    }
+
+    // Highlight (pulse) the rendered arrow at the given index, e.g. while hovering
+    // its delete button, so it's clear which connection will be removed.
+    function setEdgeHighlight(index, on) {
+        const svg = getSvgElement();
+        if (!svg) {
+            return;
+        }
+        const paths = svg.querySelectorAll("g.edgePaths > path:not(.edge-hit)");
+        const path = paths[index];
+        if (path) {
+            path.classList.toggle("edge-highlight", on);
+        }
     }
 
     // Keep overlays aligned with the SVG nodes (called on pan/zoom/render).

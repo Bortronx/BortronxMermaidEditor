@@ -610,6 +610,18 @@ textarea {
     transform: translate(-50%, -50%) scale(1.15);
 }
 
+/* Pulse the arrow whose delete button is being hovered, so it's obvious which
+   connection is about to be removed. */
+@keyframes edgeDeletePulse {
+    0%, 100% { stroke: #ef4444; stroke-width: 4px; }
+    50% { stroke: #b91c1c; stroke-width: 6px; }
+}
+
+#diagramPreview g.edgePaths > path.edge-highlight {
+    stroke: #ef4444 !important;
+    animation: edgeDeletePulse 0.7s ease-in-out infinite;
+}
+
 .node-label-editor {
     position: absolute;
     z-index: 6;
