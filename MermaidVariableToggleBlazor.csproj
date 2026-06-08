@@ -8,4 +8,7 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.8" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.8" PrivateAssets="all" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\DATA\DRIVE\OneDrive\PROJECTS\Libraries\C#\BortronxMermaidEditor\BortronxMermaidEditor.csproj" />
+  </ItemGroup>
 </Project>
