@@ -50,10 +50,37 @@ body {
 }
 
 /* ----- Data Flow Diagram mode -----
-   Self-contained teal/cyan theme. Because these variables are declared on the
-   .page.mode-dfd element itself, they override the inherited light/dark palette
-   for this subtree regardless of the data-theme attribute. */
+   Self-contained teal/cyan theme with both a light and a dark variant. The
+   variables are declared on the .page.mode-dfd element itself so they override
+   the inherited palette for this subtree, while still responding to the
+   light/dark toggle (data-theme on :root). Default below is the LIGHT variant. */
 .page.mode-dfd {
+    --bg: #e6f6f3;
+    --text: #0b3a36;
+    --muted: #3f726b;
+    --note: #4f827b;
+    --panel-bg: #f3fbfa;
+    --panel-border: #b3ddd6;
+    --panel-shadow: rgba(13, 148, 136, 0.15);
+    --header-border: #b3ddd6;
+    --btn-bg: #d6f0eb;
+    --btn-border: #8fccc2;
+    --btn-text: #0b3a36;
+    --field-bg: #ffffff;
+    --field-text: #0b3a36;
+    --console-bg: #e1f5f1;
+    --console-text: #0b3a36;
+    --error-bg: #fde8e8;
+    --error-border: #f5b5b5;
+    --error-text: #b91c1c;
+    --accent: #0d9488;
+
+    background: var(--bg);
+    color: var(--text);
+}
+
+/* DARK variant of the Data Flow Diagram theme. */
+:root[data-theme="dark"] .page.mode-dfd {
     --bg: #07171c;
     --text: #d7f3ee;
     --muted: #8fb3ad;
@@ -73,9 +100,6 @@ body {
     --error-border: #7f1d1d;
     --error-text: #fca5a5;
     --accent: #14b8a6;
-
-    background: var(--bg);
-    color: var(--text);
 }
 
 .mode-select {

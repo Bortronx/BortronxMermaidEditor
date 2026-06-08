@@ -42,6 +42,7 @@
             <button type="button" @onclick="InsertDataFlow" title="Labeled arrow: A --&gt;|Data Name| B">+ Data Flow</button>
             <span class="dfd-sep"></span>
             <button type="button" @onclick="LoadDfdTemplate" title="Replace the editor with a Data Flow Diagram starter">Load DFD template</button>
+            <button type="button" @onclick="() => ShowLegendPanel = !ShowLegendPanel" title="Show or hide the legend definitions section">@(ShowLegendPanel ? "Hide legend definitions" : "Show legend definitions")</button>
             <div class="dfd-legend">
                 <span><span class="swatch entity"></span>Entity <code>["Name"]</code></span>
                 <span><span class="swatch process"></span>Process <code>p1[["Name"]]</code></span>
@@ -50,20 +51,24 @@
             </div>
         </div>
 
-        <div class="dfd-legend-panel">
-            <div class="dfd-legend-head">
-                <span class="dfd-title">Legend definitions</span>
-                <span class="small-note">Describe what Entities, Processes, Data Stores, and Data Flows mean. Insert it as a Legend node or copy it.</span>
-                <div class="dfd-legend-actions">
-                    <button type="button" @onclick="InsertLegend">Insert legend into diagram</button>
-                    <button type="button" @onclick="RemoveLegend">Remove legend</button>
-                    <button type="button" @onclick="CopyLegend">@CopyLegendLabel</button>
+        @if (ShowLegendPanel)
+        {
+            <div class="dfd-legend-panel">
+                <div class="dfd-legend-head">
+                    <span class="dfd-title">Legend definitions</span>
+                    <span class="small-note">Describe what Entities, Processes, Data Stores, and Data Flows mean. Insert it as a Legend node or copy it.</span>
+                    <div class="dfd-legend-actions">
+                        <button type="button" @onclick="UpdateLegend">Update legend</button>
+                        <button type="button" @onclick="InsertLegend">Insert legend into diagram</button>
+                        <button type="button" @onclick="RemoveLegend">Remove legend</button>
+                        <button type="button" @onclick="CopyLegend">@CopyLegendLabel</button>
+                    </div>
                 </div>
+                <textarea class="dfd-legend-text" @bind="LegendDefinitions" @bind:event="oninput"
+                          spellcheck="false"
+                          placeholder="One definition per line, e.g. Data Store: A place where data is saved, stored, or retrieved."></textarea>
             </div>
-            <textarea class="dfd-legend-text" @bind="LegendDefinitions" @bind:event="oninput"
-                      spellcheck="false"
-                      placeholder="One definition per line, e.g. Data Store: A place where data is saved, stored, or retrieved."></textarea>
-        </div>
+        }
     }
 
     <div class="grid">
@@ -118,12 +123,12 @@
 
     private string CopyLegendLabel { get; set; } = "Copy legend";
 
-    // Editable legend descriptions for the Data Flow Diagram elements (one per line).
-    private string LegendDefinitions { get; set; } =
-@"Entity: An external source or destination of data - a person, system, or organization outside the process.
-Process: A step that receives data, transforms it, and produces new output data.
-Data Store: A place where data is saved, stored, or retrieved.
-Data Flow: The movement of data from one part of the system to another.";
+    // The legend definitions section is hidden until toggled from the Data Flow tools.
+    private bool ShowLegendPanel { get; set; }
+
+    // Editable legend definitions for the Data Flow Diagram's Data Stores and Data
+    // Flows (one "Label: description" per line). Use "Update legend" to sync labels.
+    private string LegendDefinitions { get; set; } = "";
 
     private string MermaidSource { get; set; } = @"
 flowchart TD
@@ -203,15 +208,8 @@ end
 
     private async Task OnModeChanged()
     {
-        // Data Flow mode defaults to dark mode (its own teal theme applies regardless).
-        if (CurrentMode == AppMode.DataFlow && !IsDark)
-        {
-            IsDark = true;
-            // setTheme re-renders the diagram with the dark Mermaid theme.
-            await JS.InvokeVoidAsync("mermaidVariableEditor.setTheme", true);
-            return;
-        }
-
+        // The light/dark toggle applies to every mode. The Data Flow theme has its
+        // own light and dark teal variants, so we just re-render with the current theme.
         await RenderDiagram();
     }
 
@@ -238,24 +236,38 @@ end
         await RenderDiagram();
     }
 
-    private Task InsertEntity() => AddDfdNode($"e{NextId("e")}", "[\"Entity\"]");
+    private Task InsertEntity()
+    {
+        var n = NextId("e");
+        return AddDfdNode($"e{n}", $"[\"Entity {n}\"]");
+    }
 
-    private Task InsertProcess() => AddDfdNode($"p{NextId("p")}", "[[\"Process\"]]");
+    private Task InsertProcess()
+    {
+        var n = NextId("p");
+        return AddDfdNode($"p{n}", $"[[\"Process {n}\"]]");
+    }
 
-    private Task InsertDataStore() => AddDfdNode($"d{NextId("d")}", "[(\"Data Store\")]");
+    private Task InsertDataStore()
+    {
+        var n = NextId("d");
+        return AddDfdNode($"d{n}", $"[(\"Data Store {n}\")]");
+    }
 
     private async Task InsertDataFlow()
     {
+        // Number flow labels so each new one is distinct (e.g. "Data Flow 1").
+        var n = Regex.Matches(MermaidSource, "\\|[^|]+\\|").Count + 1;
         string line;
         if (_recentDfdIds.Count >= 2)
         {
             var to = _recentDfdIds[^1];
             var from = _recentDfdIds[^2];
-            line = $"{from} -->|Data Name| {to}";
+            line = $"{from} -->|Data Flow {n}| {to}";
         }
         else
         {
-            line = "e1[\"Source\"] -->|Data Name| p1[[\"Process\"]]";
+            line = $"e1[\"Source\"] -->|Data Flow {n}| p1[[\"Process\"]]";
         }
 
         MermaidSource = MermaidSource.TrimEnd() + "\n" + line + "\n";
@@ -274,12 +286,15 @@ end
 
     private string BuildLegendNode()
     {
+        // Only emit "Label: description" lines; skip category headers (lines with no ':').
         var body = string.Join("<br/><br/>\n",
             LegendDefinitions
                 .Replace("\"", "&quot;")
                 .Split('\n')
                 .Select(l => l.TrimEnd())
-                .Where(l => l.Trim().Length > 0));
+                .Where(l => l.Contains(":")
+                            && !l.TrimStart().StartsWith("#")
+                            && !l.Contains("[removed]")));
 
         return "LEGEND[\"Legend<br/><br/>\n" + body + "\"]";
     }
@@ -302,6 +317,12 @@ end
         return src.TrimEnd();
     }
 
+    private static string StripComments(string src)
+    {
+        // Drop Mermaid %% comments so their text isn't scanned as nodes/flows.
+        return Regex.Replace(src, "%%.*", "");
+    }
+
     private async Task InsertLegend()
     {
         MermaidSource = StripLegend(MermaidSource) + "\n\n" + BuildLegendSnippet() + "\n";
@@ -322,6 +343,142 @@ end
         await Task.Delay(1500);
         CopyLegendLabel = "Copy legend";
         StateHasChanged();
+    }
+
+    // Scans the current Mermaid source and rebuilds the legend grouped into categories
+    // (Data Flows, Data Stores, Entities). Comment lines are ignored, existing
+    // descriptions (text after ':') are preserved, and new items get a blank description.
+    private async Task UpdateLegend()
+    {
+        var source = StripComments(StripLegend(MermaidSource));
+
+        var flows = new List<string>();
+        var stores = new List<string>();
+        var entities = new List<string>();
+
+        static void Add(List<string> list, string label)
+        {
+            label = label.Trim();
+            if (label.Length > 0 && !list.Contains(label)) list.Add(label);
+        }
+
+        // Data Stores: id[("...")]
+        foreach (Match m in Regex.Matches(source, "\\[\\(\"([^\"]+)\"\\)\\]"))
+            Add(stores, m.Groups[1].Value);
+
+        // Data Flows: edge labels |...|
+        foreach (Match m in Regex.Matches(source, "\\|([^|]+)\\|"))
+            Add(flows, m.Groups[1].Value);
+
+        // Entities: id["..."] (plain single bracket; not [[..]] processes, not [(..)] stores).
+        foreach (Match m in Regex.Matches(source, "(?<![\\[\\(])\\[\"([^\"]+)\"\\](?![\\]\\)])"))
+        {
+            var label = m.Groups[1].Value;
+            if (!label.StartsWith("Legend", StringComparison.OrdinalIgnoreCase))
+                Add(entities, label);
+        }
+
+        // Preserve existing descriptions from the legend textarea AND from a LEGEND node
+        // already embedded in the diagram, so a definition typed in either place is kept.
+        var existing = ParseLegendDescriptions();
+        MergeDescriptions(existing, ExtractDiagramLegendText(MermaidSource));
+
+        // Rebuild the legend text grouped by category.
+        var lines = new List<string>();
+        void Section(string header, List<string> labels)
+        {
+            if (labels.Count == 0) return;
+            if (lines.Count > 0) lines.Add("");
+            lines.Add(header);
+            foreach (var label in labels)
+            {
+                var desc = existing.TryGetValue(label, out var d) ? d : "";
+                lines.Add($"{label}: {desc}".TrimEnd());
+            }
+        }
+
+        Section("Data Flows", flows);
+        Section("Data Stores", stores);
+        Section("Entities", entities);
+
+        LegendDefinitions = string.Join("\n", lines);
+        await Task.CompletedTask;
+        StateHasChanged();
+    }
+
+    // Order of legend items as parsed from the current legend text (flat).
+    private readonly List<string> _legendOrder = new();
+
+    // Parses the legend textarea into a label -> description map, recording item order.
+    private Dictionary<string, string> ParseLegendDescriptions()
+    {
+        var map = new Dictionary<string, string>();
+        _legendOrder.Clear();
+        ParseLegendText(LegendDefinitions, map, _legendOrder);
+        return map;
+    }
+
+    // Core legend-text parser. Fills the description map and the order list.
+    private static void ParseLegendText(string text, Dictionary<string, string> map, List<string> order)
+    {
+        foreach (var raw in text.Split('\n'))
+        {
+            var line = raw.Trim();
+            if (line.Length == 0 || line.StartsWith("#")) continue;
+
+            var idx = line.IndexOf(':');
+            if (idx < 0) continue;
+
+            var label = line.Substring(0, idx).Trim();
+            var desc = line.Substring(idx + 1).Trim();
+            if (desc.StartsWith("[removed]"))
+                desc = desc.Substring("[removed]".Length).Trim();
+            if (label.Length == 0) continue;
+
+            map[label] = desc;
+            if (!order.Contains(label)) order.Add(label);
+        }
+    }
+
+    // Reads a LEGEND node already present in the diagram and returns its legend text in
+    // the same line-based format as the textarea ("label: description").
+    private static string ExtractDiagramLegendText(string src)
+    {
+        var m = Regex.Match(src, "LEGEND\\[\"([\\s\\S]*?)\"\\]", RegexOptions.IgnoreCase);
+        if (!m.Success) return "";
+
+        var content = m.Groups[1].Value
+            .Replace("&quot;", "\"")
+            .Replace("<br/>", "\n")
+            .Replace("<br>", "\n");
+
+        // Drop the leading "Legend" title line produced by BuildLegendNode.
+        var lines = content.Split('\n')
+            .Where(l => !string.Equals(l.Trim(), "Legend", StringComparison.OrdinalIgnoreCase));
+
+        return string.Join("\n", lines);
+    }
+
+    // Merges descriptions parsed from the in-diagram legend into the existing map. A
+    // non-empty description from the diagram fills in a blank one; existing non-empty
+    // descriptions are never overwritten.
+    private void MergeDescriptions(Dictionary<string, string> existing, string diagramLegendText)
+    {
+        if (string.IsNullOrWhiteSpace(diagramLegendText)) return;
+
+        var diagramMap = new Dictionary<string, string>();
+        var diagramOrder = new List<string>();
+        ParseLegendText(diagramLegendText, diagramMap, diagramOrder);
+
+        foreach (var kvp in diagramMap)
+        {
+            if (!existing.TryGetValue(kvp.Key, out var current) || string.IsNullOrEmpty(current))
+                existing[kvp.Key] = kvp.Value;
+        }
+
+        // Remember the order of items that only existed in the in-diagram legend.
+        foreach (var label in diagramOrder)
+            if (!_legendOrder.Contains(label)) _legendOrder.Add(label);
     }
 
     private const string DfdTemplate = @"flowchart TD
