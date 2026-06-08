@@ -86,6 +86,10 @@
                         Show variable names
                     </label>
                     <button type="button" @onclick="ToggleControls">@(ControlsVisible ? "Hide controls" : "Show controls")</button>
+                    @if (ControlsVisible)
+                    {
+                        <button type="button" @onclick="ToggleColors">@(ColorsVisible ? "Hide colors" : "Show colors")</button>
+                    }
                     <button type="button" @onclick="ZoomOut">-</button>
                     <button type="button" @onclick="ResetZoom">Reset</button>
                     <button type="button" @onclick="ZoomIn">+</button>
@@ -124,6 +128,7 @@
     private AppMode CurrentMode { get; set; } = AppMode.Standard;
     private bool ShowVariableNames { get; set; }
     private bool ControlsVisible { get; set; } = true;
+    private bool ColorsVisible { get; set; } = true;
     private bool IsDark { get; set; }
 
     // Tracks recently inserted Data Flow node ids so "+ Data Flow" can link the last two.
@@ -208,6 +213,12 @@ end
     {
         ControlsVisible = !ControlsVisible;
         await JS.InvokeVoidAsync("mermaidVariableEditor.setControlsVisible", ControlsVisible);
+    }
+
+    private async Task ToggleColors()
+    {
+        ColorsVisible = !ColorsVisible;
+        await JS.InvokeVoidAsync("mermaidVariableEditor.setColorsVisible", ColorsVisible);
     }
 
     private async Task ToggleTheme()

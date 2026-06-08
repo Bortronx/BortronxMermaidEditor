@@ -444,6 +444,10 @@ textarea {
     box-shadow: 0 -4px 12px var(--panel-shadow);
 }
 
+#colorBar.colors-hidden {
+    display: none;
+}
+
 .color-swatch {
     flex: 1 1 0;
     min-width: 0;

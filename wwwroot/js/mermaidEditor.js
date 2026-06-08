@@ -24,6 +24,7 @@ window.mermaidVariableEditor = (() => {
     let nodeOverlays = []; // { id, el, g }
     let edgeButtons = [];  // { from, to, el }
     let controlsVisible = true;
+    let colorsVisible = true;
     let currentTheme = "default";
     let currentMode = "standard"; // "standard" | "dataflow"
     const connect = { active: false, fromId: "", x: 0, y: 0, startX: 0, startY: 0 };
@@ -373,6 +374,7 @@ window.mermaidVariableEditor = (() => {
         // the interaction layer, it is hidden automatically when controls are hidden.
         const colorBar = document.createElement("div");
         colorBar.id = "colorBar";
+        colorBar.classList.toggle("colors-hidden", !colorsVisible);
         layer.appendChild(colorBar);
 
         viewport.appendChild(layer);
@@ -410,6 +412,24 @@ window.mermaidVariableEditor = (() => {
 
     function toggleControls() {
         return setControlsVisible(!controlsVisible);
+    }
+
+    // Show or hide just the paint-bucket color bar, independent of the other controls.
+    // The bar still only appears when controls are visible (it lives inside the
+    // interaction layer, which is hidden by setControlsVisible).
+    function setColorsVisible(visible) {
+        colorsVisible = !!visible;
+
+        const colorBar = document.getElementById("colorBar");
+        if (colorBar) {
+            colorBar.classList.toggle("colors-hidden", !colorsVisible);
+        }
+
+        if (!colorsVisible) {
+            clearPaint();
+        }
+
+        return colorsVisible;
     }
 
     // Toggle native fullscreen for the preview panel alone. After entering or leaving
@@ -1330,5 +1350,5 @@ window.mermaidVariableEditor = (() => {
         }).join("\n");
     }
 
-    return { render, zoomIn, zoomOut, resetZoom, clearErrors, setControlsVisible, toggleControls, setTheme, copyToClipboard, setMode, toggleFullscreen };
+    return { render, zoomIn, zoomOut, resetZoom, clearErrors, setControlsVisible, toggleControls, setColorsVisible, setTheme, copyToClipboard, setMode, toggleFullscreen };
 })();
