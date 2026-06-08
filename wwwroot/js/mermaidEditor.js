@@ -401,6 +401,34 @@ window.mermaidVariableEditor = (() => {
         return setControlsVisible(!controlsVisible);
     }
 
+    // Toggle native fullscreen for the preview panel alone. After entering or leaving
+    // fullscreen the diagram is re-laid-out so the SVG and overlays fit the new size.
+    function toggleFullscreen(targetId) {
+        const el = document.getElementById(targetId || "previewPanel");
+        if (!el) {
+            return;
+        }
+
+        if (document.fullscreenElement) {
+            document.exitFullscreen();
+        } else if (el.requestFullscreen) {
+            el.requestFullscreen().catch(() => { });
+        }
+    }
+
+    // Re-fit the diagram whenever fullscreen state changes (size of the panel changes).
+    document.addEventListener("fullscreenchange", () => {
+        const panel = document.getElementById("previewPanel");
+        if (panel) {
+            panel.classList.toggle("is-fullscreen", document.fullscreenElement === panel);
+        }
+        // Defer so the browser has applied the new dimensions first.
+        requestAnimationFrame(() => {
+            applyTransform();
+            positionInteraction();
+        });
+    });
+
     // Switch between light and dark themes (page + Mermaid diagram).
     function setTheme(dark) {
         currentTheme = dark ? "dark" : "default";
@@ -1078,5 +1106,5 @@ window.mermaidVariableEditor = (() => {
         }).join("\n");
     }
 
-    return { render, zoomIn, zoomOut, resetZoom, clearErrors, setControlsVisible, toggleControls, setTheme, copyToClipboard, setMode };
+    return { render, zoomIn, zoomOut, resetZoom, clearErrors, setControlsVisible, toggleControls, setTheme, copyToClipboard, setMode, toggleFullscreen };
 })();

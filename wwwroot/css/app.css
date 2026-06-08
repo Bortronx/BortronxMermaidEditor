@@ -335,9 +335,25 @@ button, .toggle {
     margin-left: auto;
 }
 
-.preview-actions button {
-    padding: 6px 10px;
+.preview-actions button,
+.preview-actions .toggle {
+    height: 32px;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0 10px;
     border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.preview-actions .icon-btn {
+    padding: 0 8px;
+    line-height: 0;
 }
 
 textarea {
@@ -375,6 +391,20 @@ textarea {
 
 .preview-wrap.dragging {
     cursor: grabbing;
+}
+
+/* ----- Fullscreen preview panel ----- */
+#previewPanel:fullscreen {
+    display: flex;
+    flex-direction: column;
+    width: 100vw;
+    height: 100vh;
+    background: var(--bg);
+}
+
+#previewPanel:fullscreen .preview-wrap {
+    flex: 1 1 auto;
+    min-height: 0;
 }
 
 #diagramPreview svg {
