@@ -476,6 +476,13 @@ textarea {
     cursor: crosshair;
 }
 
+/* While a paint color is armed, the delete buttons must not intercept clicks meant
+   for the arrows/nodes underneath, so the paint bucket can reach the edge hit paths. */
+#interactionLayer.painting .node-delete,
+#interactionLayer.painting .edge-delete {
+    pointer-events: none;
+}
+
 #noodleSvg {
     position: absolute;
     inset: 0;

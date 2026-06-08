@@ -547,8 +547,60 @@ window.mermaidVariableEditor = (() => {
             edgeButtons.push({ from: edge.from, to: edge.to, el });
         });
 
+        buildEdgeHitPaths();
         populateColorBar();
         positionInteraction();
+    }
+
+    // Add a transparent, wide companion path over each rendered edge so the paint bucket
+    // can target it. The hit paths live inside the SVG, so they scale/pan with the
+    // diagram automatically. They only receive pointer events while a color is armed.
+    function buildEdgeHitPaths() {
+        const svg = getSvgElement();
+        if (!svg) {
+            return;
+        }
+
+        svg.querySelectorAll("path.edge-hit").forEach(p => p.remove());
+
+        const realPaths = svg.querySelectorAll("g.edgePaths > path");
+        realPaths.forEach((rp, i) => {
+            const hit = rp.cloneNode(false);
+            hit.setAttribute("class", "edge-hit");
+            hit.removeAttribute("id");
+            hit.style.fill = "none";
+            hit.style.stroke = "transparent";
+            hit.style.strokeWidth = "16px";
+            hit.style.cursor = "crosshair";
+            hit.style.pointerEvents = paintColor ? "stroke" : "none";
+            hit.dataset.edgeIndex = String(i);
+
+            // Use pointerdown (not click) so the paint applies before the viewport pan
+            // handler can start a drag and steal the gesture.
+            hit.addEventListener("pointerdown", e => {
+                if (!paintColor) {
+                    return;
+                }
+                e.stopPropagation();
+                e.preventDefault();
+                const color = paintColor;
+                clearPaint();
+                applySource(setEdgeColor(currentSource, i, color));
+            });
+
+            rp.parentElement.appendChild(hit);
+        });
+    }
+
+    // Toggle whether the edge hit paths capture pointer events (only while painting).
+    function setEdgeHitActive(active) {
+        const svg = getSvgElement();
+        if (!svg) {
+            return;
+        }
+        svg.querySelectorAll("path.edge-hit").forEach(p => {
+            p.style.pointerEvents = active ? "stroke" : "none";
+        });
     }
 
     // Keep overlays aligned with the SVG nodes (called on pan/zoom/render).
@@ -772,6 +824,7 @@ window.mermaidVariableEditor = (() => {
         if (layer) {
             layer.classList.add("painting");
         }
+        setEdgeHitActive(true);
     }
 
     function clearPaint() {
@@ -784,6 +837,7 @@ window.mermaidVariableEditor = (() => {
         if (layer) {
             layer.classList.remove("painting");
         }
+        setEdgeHitActive(false);
     }
 
     // Add or replace a `style <id> fill:...` line so the node renders in the chosen color.
@@ -808,7 +862,19 @@ window.mermaidVariableEditor = (() => {
         return lines.join("\n");
     }
 
-    // ----- Color helpers -----
+    // Add or replace a `linkStyle <index> stroke:...` line so the arrow (edge) at that
+    // index renders in the chosen color. Index follows edge definition order.
+    function setEdgeColor(source, index, color) {
+        const styleLine = `linkStyle ${index} stroke:${color},stroke-width:2px`;
+        const rx = new RegExp(`^\\s*linkStyle\\s+${index}\\b`);
+        const lines = source.split(/\r?\n/);
+        const idx = lines.findIndex(l => rx.test(l));
+        if (idx >= 0) {
+            lines[idx] = styleLine;
+            return lines.join("\n");
+        }
+        return lines.concat(styleLine).join("\n");
+    }
 
     function hslToHex(h, s, l) {
         s /= 100;
