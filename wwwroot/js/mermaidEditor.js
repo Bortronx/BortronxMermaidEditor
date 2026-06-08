@@ -23,6 +23,7 @@ window.mermaidVariableEditor = (() => {
     let interactionBuilt = false;
     let nodeOverlays = []; // { id, el, g }
     let edgeButtons = [];  // { from, to, el }
+    let controlsVisible = true;
     const connect = { active: false, fromId: "", x: 0, y: 0 };
 
     function init() {
@@ -342,11 +343,39 @@ window.mermaidVariableEditor = (() => {
         layer.appendChild(noodleSvg);
 
         viewport.appendChild(layer);
+        layer.classList.toggle("controls-hidden", !controlsVisible);
 
         window.addEventListener("pointermove", onConnectMove);
         window.addEventListener("pointerup", onConnectUp);
 
         interactionBuilt = true;
+    }
+
+    // Show or hide the interactive editing controls (overlays, handles, edge buttons).
+    function setControlsVisible(visible) {
+        controlsVisible = !!visible;
+
+        const layer = document.getElementById("interactionLayer");
+        if (layer) {
+            layer.classList.toggle("controls-hidden", !controlsVisible);
+        }
+
+        if (!controlsVisible) {
+            // Cancel any in-progress connection or inline edit when hiding.
+            connect.active = false;
+            connect.fromId = "";
+            const noodle = document.getElementById("noodleSvg");
+            if (noodle) {
+                noodle.style.display = "none";
+            }
+            closeNodeEditor();
+        }
+
+        return controlsVisible;
+    }
+
+    function toggleControls() {
+        return setControlsVisible(!controlsVisible);
     }
 
     // Rebuild overlays + edge buttons from the current SVG and source.
@@ -840,5 +869,5 @@ window.mermaidVariableEditor = (() => {
         }).join("\n");
     }
 
-    return { render, zoomIn, zoomOut, resetZoom, clearErrors };
+    return { render, zoomIn, zoomOut, resetZoom, clearErrors, setControlsVisible, toggleControls };
 })();

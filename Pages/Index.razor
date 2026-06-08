@@ -30,6 +30,7 @@
                 <span>Preview</span>
                 <div class="preview-actions">
                     <span class="small-note">Drag a node to connect · double-click to edit · hover for delete</span>
+                    <button type="button" @onclick="ToggleControls">@(ControlsVisible ? "Hide controls" : "Show controls")</button>
                     <button type="button" @onclick="ZoomOut">-</button>
                     <button type="button" @onclick="ResetZoom">Reset</button>
                     <button type="button" @onclick="ZoomIn">+</button>
@@ -56,6 +57,7 @@
 
 @code {
     private bool ShowVariableNames { get; set; }
+    private bool ControlsVisible { get; set; } = true;
 
     private string MermaidSource { get; set; } = @"
 flowchart TD
@@ -112,6 +114,12 @@ end
     private async Task ResetZoom()
     {
         await JS.InvokeVoidAsync("mermaidVariableEditor.resetZoom");
+    }
+
+    private async Task ToggleControls()
+    {
+        ControlsVisible = !ControlsVisible;
+        await JS.InvokeVoidAsync("mermaidVariableEditor.setControlsVisible", ControlsVisible);
     }
 
     private async Task ClearErrorConsole()

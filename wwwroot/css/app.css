@@ -146,6 +146,10 @@ textarea {
     z-index: 4;
 }
 
+#interactionLayer.controls-hidden {
+    display: none;
+}
+
 #noodleSvg {
     position: absolute;
     inset: 0;
