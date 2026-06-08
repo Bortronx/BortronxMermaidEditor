@@ -17,6 +17,7 @@
     --error-bg: #fff1f1;
     --error-border: #f0b9b9;
     --error-text: #a40000;
+    --accent: #2563eb;
 
     font-family: Inter, Arial, sans-serif;
     color: var(--text);
@@ -46,6 +47,187 @@
 
 body {
     margin: 0;
+}
+
+/* ----- Data Flow Diagram mode -----
+   Self-contained teal/cyan theme. Because these variables are declared on the
+   .page.mode-dfd element itself, they override the inherited light/dark palette
+   for this subtree regardless of the data-theme attribute. */
+.page.mode-dfd {
+    --bg: #07171c;
+    --text: #d7f3ee;
+    --muted: #8fb3ad;
+    --note: #7fa39d;
+    --panel-bg: #0f242b;
+    --panel-border: #1d4a52;
+    --panel-shadow: rgba(0, 0, 0, 0.5);
+    --header-border: #1d4a52;
+    --btn-bg: #123038;
+    --btn-border: #1f5560;
+    --btn-text: #d7f3ee;
+    --field-bg: #0b1f25;
+    --field-text: #d7f3ee;
+    --console-bg: #05161a;
+    --console-text: #b8e6df;
+    --error-bg: #3b1212;
+    --error-border: #7f1d1d;
+    --error-text: #fca5a5;
+    --accent: #14b8a6;
+
+    background: var(--bg);
+    color: var(--text);
+}
+
+.mode-select {
+    gap: 6px;
+}
+
+.mode-select select {
+    border: 1px solid var(--btn-border);
+    background: var(--btn-bg);
+    color: var(--btn-text);
+    border-radius: 8px;
+    padding: 6px 8px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.mode-badge {
+    display: inline-block;
+    margin-left: 10px;
+    padding: 2px 10px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #ffffff;
+    background: var(--accent);
+    border-radius: 999px;
+    vertical-align: middle;
+}
+
+.dfd-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+    padding: 12px 16px;
+    background: var(--panel-bg);
+    border: 1px solid var(--accent);
+    border-radius: 14px;
+    box-shadow: 0 8px 24px var(--panel-shadow);
+}
+
+.dfd-bar .dfd-title {
+    font-weight: 700;
+    margin-right: 4px;
+    color: var(--accent);
+}
+
+.dfd-bar button {
+    padding: 7px 11px;
+    border-radius: 8px;
+}
+
+.dfd-sep {
+    width: 1px;
+    align-self: stretch;
+    background: var(--panel-border);
+    margin: 0 4px;
+}
+
+.dfd-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-left: auto;
+    font-size: 13px;
+    color: var(--muted);
+    align-items: center;
+}
+
+.dfd-legend code {
+    background: var(--field-bg);
+    color: var(--field-text);
+    padding: 2px 6px;
+    border-radius: 6px;
+    border: 1px solid var(--panel-border);
+}
+
+.dfd-legend .swatch {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-right: 6px;
+    vertical-align: middle;
+    border: 1px solid var(--accent);
+}
+
+.dfd-legend .swatch.entity {
+    border-radius: 2px;
+}
+
+.dfd-legend .swatch.process {
+    border-radius: 2px;
+    box-shadow: inset 3px 0 0 var(--accent), inset -3px 0 0 var(--accent);
+}
+
+.dfd-legend .swatch.store {
+    border-radius: 50% / 30%;
+}
+
+.dfd-legend .swatch.flow {
+    border: 0;
+    height: 0;
+    border-top: 2px solid var(--accent);
+    width: 16px;
+}
+
+.dfd-legend-panel {
+    margin-bottom: 16px;
+    padding: 12px 16px;
+    background: var(--panel-bg);
+    border: 1px solid var(--accent);
+    border-radius: 14px;
+    box-shadow: 0 8px 24px var(--panel-shadow);
+}
+
+.dfd-legend-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.dfd-legend-head .dfd-title {
+    color: var(--accent);
+}
+
+.dfd-legend-actions {
+    display: inline-flex;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.dfd-legend-actions button {
+    padding: 7px 11px;
+    border-radius: 8px;
+}
+
+.dfd-legend-text {
+    width: 100%;
+    min-height: 96px;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    resize: vertical;
+    font-family: Consolas, Monaco, monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    background: var(--field-bg);
+    color: var(--field-text);
+    outline: none;
 }
 
 .page {

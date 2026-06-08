@@ -1,13 +1,28 @@
 @page "/"
+@using System.Linq
+@using System.Text.RegularExpressions
 @inject IJSRuntime JS
 
-<div class="page">
+<div class="page @(CurrentMode == AppMode.DataFlow ? "mode-dfd" : "")">
     <div class="header">
         <div>
-            <h1>Mermaid Variable Toggle Editor</h1>
+            <h1>
+                Mermaid Variable Toggle Editor
+                @if (CurrentMode == AppMode.DataFlow)
+                {
+                    <span class="mode-badge">Data Flow Mode</span>
+                }
+            </h1>
             <p>Toggle Mermaid node IDs in the preview without changing your original code.</p>
         </div>
         <div class="toolbar">
+            <label class="toggle mode-select">
+                Mode
+                <select @bind="CurrentMode" @bind:after="OnModeChanged">
+                    <option value="@AppMode.Standard">Standard</option>
+                    <option value="@AppMode.DataFlow">Data Flow Diagram Mode</option>
+                </select>
+            </label>
             <label class="toggle">
                 <input type="checkbox" @bind="ShowVariableNames" @bind:after="RenderDiagram" />
                 Show variable names
@@ -16,6 +31,40 @@
             <button @onclick="RenderDiagram">Render</button>
         </div>
     </div>
+
+    @if (CurrentMode == AppMode.DataFlow)
+    {
+        <div class="dfd-bar">
+            <span class="dfd-title">Data Flow tools</span>
+            <button type="button" @onclick="InsertEntity" title='Mermaid default box: ["Entity"]'>+ Entity</button>
+            <button type="button" @onclick="InsertProcess" title="Mermaid subroutine shape: p1[[Process]]">+ Process</button>
+            <button type="button" @onclick="InsertDataStore" title="Mermaid database node: d1[(DataStore)]">+ Data Store</button>
+            <button type="button" @onclick="InsertDataFlow" title="Labeled arrow: A --&gt;|Data Name| B">+ Data Flow</button>
+            <span class="dfd-sep"></span>
+            <button type="button" @onclick="LoadDfdTemplate" title="Replace the editor with a Data Flow Diagram starter">Load DFD template</button>
+            <div class="dfd-legend">
+                <span><span class="swatch entity"></span>Entity <code>["Name"]</code></span>
+                <span><span class="swatch process"></span>Process <code>p1[["Name"]]</code></span>
+                <span><span class="swatch store"></span>Data Store <code>d1[("Name")]</code></span>
+                <span><span class="swatch flow"></span>Data Flow <code>--&gt;|Name|</code></span>
+            </div>
+        </div>
+
+        <div class="dfd-legend-panel">
+            <div class="dfd-legend-head">
+                <span class="dfd-title">Legend definitions</span>
+                <span class="small-note">Describe what Entities, Processes, Data Stores, and Data Flows mean. Insert it as a Legend node or copy it.</span>
+                <div class="dfd-legend-actions">
+                    <button type="button" @onclick="InsertLegend">Insert legend into diagram</button>
+                    <button type="button" @onclick="RemoveLegend">Remove legend</button>
+                    <button type="button" @onclick="CopyLegend">@CopyLegendLabel</button>
+                </div>
+            </div>
+            <textarea class="dfd-legend-text" @bind="LegendDefinitions" @bind:event="oninput"
+                      spellcheck="false"
+                      placeholder="One definition per line, e.g. Data Store: A place where data is saved, stored, or retrieved."></textarea>
+        </div>
+    }
 
     <div class="grid">
         <section class="panel">
@@ -57,9 +106,24 @@
 </div>
 
 @code {
+    private enum AppMode { Standard, DataFlow }
+
+    private AppMode CurrentMode { get; set; } = AppMode.Standard;
     private bool ShowVariableNames { get; set; }
     private bool ControlsVisible { get; set; } = true;
     private bool IsDark { get; set; }
+
+    // Tracks recently inserted Data Flow node ids so "+ Data Flow" can link the last two.
+    private readonly List<string> _recentDfdIds = new();
+
+    private string CopyLegendLabel { get; set; } = "Copy legend";
+
+    // Editable legend descriptions for the Data Flow Diagram elements (one per line).
+    private string LegendDefinitions { get; set; } =
+@"Entity: An external source or destination of data - a person, system, or organization outside the process.
+Process: A step that receives data, transforms it, and produces new output data.
+Data Store: A place where data is saved, stored, or retrieved.
+Data Flow: The movement of data from one part of the system to another.";
 
     private string MermaidSource { get; set; } = @"
 flowchart TD
@@ -134,4 +198,153 @@ end
     {
         await JS.InvokeVoidAsync("mermaidVariableEditor.clearErrors");
     }
+
+    // ----- Mode menu -----
+
+    private async Task OnModeChanged()
+    {
+        // Data Flow mode defaults to dark mode (its own teal theme applies regardless).
+        if (CurrentMode == AppMode.DataFlow && !IsDark)
+        {
+            IsDark = true;
+            // setTheme re-renders the diagram with the dark Mermaid theme.
+            await JS.InvokeVoidAsync("mermaidVariableEditor.setTheme", true);
+            return;
+        }
+
+        await RenderDiagram();
+    }
+
+    // ----- Data Flow Diagram tools -----
+
+    private int NextId(string prefix)
+    {
+        var rx = new Regex($@"\b{prefix}(\d+)\b");
+        var max = 0;
+        foreach (Match m in rx.Matches(MermaidSource))
+        {
+            if (int.TryParse(m.Groups[1].Value, out var n) && n > max)
+            {
+                max = n;
+            }
+        }
+        return max + 1;
+    }
+
+    private async Task AddDfdNode(string id, string shape)
+    {
+        _recentDfdIds.Add(id);
+        MermaidSource = MermaidSource.TrimEnd() + "\n" + id + shape + "\n";
+        await RenderDiagram();
+    }
+
+    private Task InsertEntity() => AddDfdNode($"e{NextId("e")}", "[\"Entity\"]");
+
+    private Task InsertProcess() => AddDfdNode($"p{NextId("p")}", "[[\"Process\"]]");
+
+    private Task InsertDataStore() => AddDfdNode($"d{NextId("d")}", "[(\"Data Store\")]");
+
+    private async Task InsertDataFlow()
+    {
+        string line;
+        if (_recentDfdIds.Count >= 2)
+        {
+            var to = _recentDfdIds[^1];
+            var from = _recentDfdIds[^2];
+            line = $"{from} -->|Data Name| {to}";
+        }
+        else
+        {
+            line = "e1[\"Source\"] -->|Data Name| p1[[\"Process\"]]";
+        }
+
+        MermaidSource = MermaidSource.TrimEnd() + "\n" + line + "\n";
+        await RenderDiagram();
+    }
+
+    private async Task LoadDfdTemplate()
+    {
+        _recentDfdIds.Clear();
+        _recentDfdIds.AddRange(new[] { "e1", "p1", "d1", "p2" });
+        MermaidSource = DfdTemplate;
+        await RenderDiagram();
+    }
+
+    // ----- Legend node -----
+
+    private string BuildLegendNode()
+    {
+        var body = string.Join("<br/><br/>\n",
+            LegendDefinitions
+                .Replace("\"", "&quot;")
+                .Split('\n')
+                .Select(l => l.TrimEnd())
+                .Where(l => l.Trim().Length > 0));
+
+        return "LEGEND[\"Legend<br/><br/>\n" + body + "\"]";
+    }
+
+    private string BuildLegendSnippet()
+    {
+        var node = BuildLegendNode();
+        if (_recentDfdIds.Count > 0)
+        {
+            node += $"\n\n{_recentDfdIds[^1]} ~~~ LEGEND";
+        }
+        return node;
+    }
+
+    private static string StripLegend(string src)
+    {
+        // Remove an existing LEGEND node definition and any invisible connector to it.
+        src = Regex.Replace(src, "LEGEND\\[\"[\\s\\S]*?\"\\]", "", RegexOptions.IgnoreCase);
+        src = Regex.Replace(src, @"(?m)^.*~~~\s*LEGEND.*$\r?\n?", "");
+        return src.TrimEnd();
+    }
+
+    private async Task InsertLegend()
+    {
+        MermaidSource = StripLegend(MermaidSource) + "\n\n" + BuildLegendSnippet() + "\n";
+        await RenderDiagram();
+    }
+
+    private async Task RemoveLegend()
+    {
+        MermaidSource = StripLegend(MermaidSource) + "\n";
+        await RenderDiagram();
+    }
+
+    private async Task CopyLegend()
+    {
+        var ok = await JS.InvokeAsync<bool>("mermaidVariableEditor.copyToClipboard", BuildLegendSnippet());
+        CopyLegendLabel = ok ? "Copied!" : "Copy failed";
+        StateHasChanged();
+        await Task.Delay(1500);
+        CopyLegendLabel = "Copy legend";
+        StateHasChanged();
+    }
+
+    private const string DfdTemplate = @"flowchart TD
+%% Data Flow Diagram
+%% Entity [""Name""]  |  Process p#[[""Name""]]  |  Data Store d#[(""Name"")]  |  Data Flow -->|Name|
+
+%% Nodes
+e1[""External Entity""]
+p1[[""Get Data""]]
+d1[(""Data Collection"")]
+p2[[""Process Data""]]
+
+%% Flows
+e1 -->|Input Data| p1
+p1 --> d1
+d1 -->|Stored Records| p2
+
+LEGEND[""Legend<br/><br/>
+Entity: An external source or destination of data.<br/><br/>
+Process: A step that transforms incoming data into outgoing data.<br/><br/>
+Data Store: A place where data is saved, stored, or retrieved.<br/><br/>
+Data Flow: The movement of data from one part of the system to another.""]
+
+p2 ~~~ LEGEND
+";
 }

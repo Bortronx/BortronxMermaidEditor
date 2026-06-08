@@ -395,6 +395,36 @@ window.mermaidVariableEditor = (() => {
         return dark;
     }
 
+    // Copy arbitrary text to the clipboard (used by the Data Flow legend copy button).
+    async function copyToClipboard(text) {
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(text);
+                return true;
+            }
+        } catch (e) {
+            // Fall through to the legacy approach below.
+        }
+
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.top = "-1000px";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+
+        let ok = false;
+        try {
+            ok = document.execCommand("copy");
+        } catch (e) {
+            ok = false;
+        }
+        ta.remove();
+        return ok;
+    }
+
     // Rebuild overlays + edge buttons from the current SVG and source.
     function refreshInteraction() {
         const layer = document.getElementById("interactionLayer");
@@ -886,5 +916,5 @@ window.mermaidVariableEditor = (() => {
         }).join("\n");
     }
 
-    return { render, zoomIn, zoomOut, resetZoom, clearErrors, setControlsVisible, toggleControls, setTheme };
+    return { render, zoomIn, zoomOut, resetZoom, clearErrors, setControlsVisible, toggleControls, setTheme, copyToClipboard };
 })();
