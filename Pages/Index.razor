@@ -22,14 +22,14 @@
                 <span>Mermaid source</span>
                 <span class="small-note">Your code stays unchanged</span>
             </div>
-            <textarea @bind="MermaidSource" @bind:event="oninput" @bind:after="RenderDiagram"></textarea>
+            <textarea id="mermaidSourceInput" @bind="MermaidSource" @bind:event="oninput" @bind:after="RenderDiagram"></textarea>
         </section>
 
         <section class="panel">
             <div class="panel-header">
                 <span>Preview</span>
                 <div class="preview-actions">
-                    <span class="small-note">Wheel to zoom, drag to pan</span>
+                    <span class="small-note">Drag a node to connect · double-click to edit · hover for delete</span>
                     <button type="button" @onclick="ZoomOut">-</button>
                     <button type="button" @onclick="ResetZoom">Reset</button>
                     <button type="button" @onclick="ZoomIn">+</button>

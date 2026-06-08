@@ -138,6 +138,110 @@ textarea {
     min-height: 100%;
 }
 
+/* Nodexr-style interaction layer */
+#interactionLayer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 4;
+}
+
+#noodleSvg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+    display: none;
+}
+
+#tempNoodle {
+    fill: none;
+    stroke: #2563eb;
+    stroke-width: 2.5;
+    stroke-dasharray: 6 4;
+}
+
+.node-overlay {
+    position: absolute;
+    box-sizing: border-box;
+    border-radius: 6px;
+    pointer-events: auto;
+    cursor: crosshair;
+}
+
+.node-overlay:hover {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+    background: rgba(37, 99, 235, 0.06);
+}
+
+.node-overlay.connect-target {
+    outline: 2px solid #16a34a;
+    outline-offset: 2px;
+    background: rgba(22, 163, 74, 0.12);
+}
+
+.node-delete {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    line-height: 1;
+    font-size: 13px;
+    border-radius: 999px;
+    border: 1px solid #b91c1c;
+    background: #fff1f2;
+    color: #991b1b;
+    display: none;
+    pointer-events: auto;
+}
+
+.node-overlay:hover .node-delete {
+    display: block;
+}
+
+.edge-delete {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    line-height: 1;
+    font-size: 13px;
+    border-radius: 999px;
+    border: 1px solid #b91c1c;
+    background: #fff1f2;
+    color: #991b1b;
+    pointer-events: auto;
+    opacity: 0.25;
+    transition: opacity 0.15s ease;
+}
+
+.preview-wrap:hover .edge-delete {
+    opacity: 0.85;
+}
+
+.edge-delete:hover {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.15);
+}
+
+.node-label-editor {
+    position: absolute;
+    z-index: 6;
+    min-width: 120px;
+    border: 2px solid #2563eb;
+    border-radius: 8px;
+    padding: 6px 8px;
+    font-size: 14px;
+    box-shadow: 0 6px 18px rgba(37, 99, 235, 0.25);
+    pointer-events: auto;
+}
+
 #errorBox {
     color: #a40000;
     background: #fff1f1;
