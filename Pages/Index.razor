@@ -1,0 +1,121 @@
+@page "/"
+@inject IJSRuntime JS
+
+<div class="page">
+    <div class="header">
+        <div>
+            <h1>Mermaid Variable Toggle Editor</h1>
+            <p>Toggle Mermaid node IDs in the preview without changing your original code.</p>
+        </div>
+        <div class="toolbar">
+            <label class="toggle">
+                <input type="checkbox" @bind="ShowVariableNames" @bind:after="RenderDiagram" />
+                Show variable names
+            </label>
+            <button @onclick="RenderDiagram">Render</button>
+        </div>
+    </div>
+
+    <div class="grid">
+        <section class="panel">
+            <div class="panel-header">
+                <span>Mermaid source</span>
+                <span class="small-note">Your code stays unchanged</span>
+            </div>
+            <textarea @bind="MermaidSource" @bind:event="oninput" @bind:after="RenderDiagram"></textarea>
+        </section>
+
+        <section class="panel">
+            <div class="panel-header">
+                <span>Preview</span>
+                <div class="preview-actions">
+                    <span class="small-note">Wheel to zoom, drag to pan</span>
+                    <button type="button" @onclick="ZoomOut">-</button>
+                    <button type="button" @onclick="ResetZoom">Reset</button>
+                    <button type="button" @onclick="ZoomIn">+</button>
+                </div>
+            </div>
+            <div class="preview-wrap" id="previewViewport">
+                <div id="errorBox"></div>
+                <div id="diagramPreview"></div>
+            </div>
+        </section>
+    </div>
+
+    <section class="panel console-panel">
+        <div class="panel-header">
+            <span>Console</span>
+            <div class="preview-actions">
+                <span class="small-note">Copy from here when Mermaid parsing fails</span>
+                <button type="button" @onclick="ClearErrorConsole">Clear</button>
+            </div>
+        </div>
+        <textarea id="errorConsole" class="console-output" readonly placeholder="No errors yet."></textarea>
+    </section>
+</div>
+
+@code {
+    private bool ShowVariableNames { get; set; }
+
+    private string MermaidSource { get; set; } = @"
+flowchart TD
+
+%% MAIN START
+A[Protect Your Incision] --> B[Meet Mike]
+B --> C[Explore Ankle Repair]
+C --> D{Mike feels better.<br/>What should he do now?}
+
+D --> E[Take it easy at home]
+D --> F[Head toward the pool]
+D --> G[Remove bandage to check it]
+D --> H[Go for a long walk]
+D --> I[Call care team to ask what is safe]
+
+subgraph SAFE_PATH[Safe Path]
+E --> E1[Mike stays home]
+I --> I1[Care team gives guidance]
+I1 --> E1
+E1 --> E2[Tap safe items:<br/>Pillow, ice pack, water,<br/>instructions, phone]
+E2 --> E3[Good outcome:<br/>Mike keeps ankle dry<br/>and protected]
+end
+
+subgraph POOL_PATH[Pool Path]
+F --> F1[Mike goes near the pool]
+F1 --> F2[Unsafe: bandage gets wet]
+F2 --> F3[Unsafe: incision risk increases]
+end
+";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await RenderDiagram();
+        }
+    }
+
+    private async Task RenderDiagram()
+    {
+        await JS.InvokeVoidAsync("mermaidVariableEditor.render", MermaidSource, ShowVariableNames);
+    }
+
+    private async Task ZoomIn()
+    {
+        await JS.InvokeVoidAsync("mermaidVariableEditor.zoomIn");
+    }
+
+    private async Task ZoomOut()
+    {
+        await JS.InvokeVoidAsync("mermaidVariableEditor.zoomOut");
+    }
+
+    private async Task ResetZoom()
+    {
+        await JS.InvokeVoidAsync("mermaidVariableEditor.resetZoom");
+    }
+
+    private async Task ClearErrorConsole()
+    {
+        await JS.InvokeVoidAsync("mermaidVariableEditor.clearErrors");
+    }
+}

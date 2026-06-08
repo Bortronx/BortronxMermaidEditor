@@ -1,0 +1,159 @@
+:root {
+    font-family: Inter, Arial, sans-serif;
+    color: #172033;
+    background: #f4f6fb;
+}
+
+body {
+    margin: 0;
+}
+
+.page {
+    min-height: 100vh;
+    padding: 24px;
+    box-sizing: border-box;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.header h1 {
+    margin: 0 0 4px 0;
+    font-size: 28px;
+}
+
+.header p {
+    margin: 0;
+    color: #526071;
+}
+
+.toolbar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+button, .toggle {
+    border: 1px solid #c6ccda;
+    background: white;
+    color: #172033;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: minmax(360px, 42%) minmax(420px, 1fr);
+    gap: 16px;
+}
+
+.panel {
+    background: white;
+    border: 1px solid #dce1ec;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(32, 45, 72, 0.08);
+}
+
+.console-panel {
+    margin-top: 16px;
+}
+
+.panel-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid #e8ecf4;
+    font-weight: 700;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.preview-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.preview-actions button {
+    padding: 6px 10px;
+    border-radius: 8px;
+}
+
+textarea {
+    width: 100%;
+    min-height: 72vh;
+    border: 0;
+    padding: 16px;
+    box-sizing: border-box;
+    resize: vertical;
+    font-family: Consolas, Monaco, monospace;
+    font-size: 14px;
+    line-height: 1.45;
+    outline: none;
+}
+
+.console-output {
+    min-height: 180px;
+    max-height: 300px;
+    border-top: 1px solid #e8ecf4;
+    background: #0f172a;
+    color: #e2e8f0;
+}
+
+.preview-wrap {
+    min-height: 72vh;
+    padding: 18px;
+    overflow: hidden;
+    position: relative;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+}
+
+.preview-wrap.dragging {
+    cursor: grabbing;
+}
+
+#diagramPreview svg {
+    display: block;
+}
+
+#diagramPreview {
+    position: relative;
+    min-height: 100%;
+}
+
+#errorBox {
+    color: #a40000;
+    background: #fff1f1;
+    border: 1px solid #f0b9b9;
+    border-radius: 10px;
+    padding: 10px;
+    margin-bottom: 12px;
+    white-space: pre-wrap;
+    display: none;
+}
+
+.small-note {
+    color: #68758a;
+    font-size: 13px;
+}
+
+@media (max-width: 900px) {
+    .grid { grid-template-columns: 1fr; }
+}
