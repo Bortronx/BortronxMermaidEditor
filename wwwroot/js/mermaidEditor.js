@@ -49,6 +49,10 @@ window.mermaidVariableEditor = (() => {
 
     let activeNodeModal = null;
 
+    // Paint-bucket state: when a color is selected from the color bar, clicking a node
+    // fills it with that color. Cleared back to normal right after one application.
+    let paintColor = null;
+
     function init() {
         if (!initialized) {
             mermaid.initialize({ startOnLoad: false, securityLevel: "loose", theme: currentTheme });
@@ -365,6 +369,12 @@ window.mermaidVariableEditor = (() => {
         noodleSvg.appendChild(tempNoodle);
         layer.appendChild(noodleSvg);
 
+        // Paint-bucket color bar pinned to the bottom of the preview. Being a child of
+        // the interaction layer, it is hidden automatically when controls are hidden.
+        const colorBar = document.createElement("div");
+        colorBar.id = "colorBar";
+        layer.appendChild(colorBar);
+
         viewport.appendChild(layer);
         layer.classList.toggle("controls-hidden", !controlsVisible);
 
@@ -392,6 +402,7 @@ window.mermaidVariableEditor = (() => {
                 noodle.style.display = "none";
             }
             closeNodeEditor();
+            clearPaint();
         }
 
         return controlsVisible;
@@ -425,6 +436,7 @@ window.mermaidVariableEditor = (() => {
         // Defer so the browser has applied the new dimensions first.
         requestAnimationFrame(() => {
             applyTransform();
+            populateColorBar();
             positionInteraction();
         });
     });
@@ -535,6 +547,7 @@ window.mermaidVariableEditor = (() => {
             edgeButtons.push({ from: edge.from, to: edge.to, el });
         });
 
+        populateColorBar();
         positionInteraction();
     }
 
@@ -609,6 +622,15 @@ window.mermaidVariableEditor = (() => {
 
         event.preventDefault();
         event.stopPropagation();
+
+        // If a paint color is armed, clicking a node fills it instead of connecting,
+        // then the paint bucket resets back to normal.
+        if (paintColor) {
+            const color = paintColor;
+            clearPaint();
+            applySource(setNodeColor(currentSource, id, color));
+            return;
+        }
 
         connect.active = true;
         connect.fromId = id;
@@ -690,6 +712,142 @@ window.mermaidVariableEditor = (() => {
     function noodlePath(x1, y1, x2, y2) {
         const ctrl = 5 + 0.4 * Math.abs(x2 - x1) + Math.min(0.2 * Math.abs(y2 - y1), 40);
         return `M ${x1} ${y1} C ${x1 + ctrl} ${y1} ${x2 - ctrl} ${y2} ${x2} ${y2}`;
+    }
+
+    // ----- Paint bucket (color bar) -----
+
+    // Build a palette with a few neutrals followed by an evenly spaced hue spread,
+    // sized to roughly fill the available width with distinct swatches.
+    function buildColorPalette(count) {
+        const neutrals = ["#ffffff", "#e5e7eb", "#9ca3af", "#4b5563", "#111827"];
+        const hueCount = Math.max(8, count - neutrals.length);
+        const hues = [];
+        for (let i = 0; i < hueCount; i++) {
+            const hue = Math.round((360 * i) / hueCount);
+            hues.push(hslToHex(hue, 75, 62));
+        }
+        return neutrals.concat(hues);
+    }
+
+    // Fill the color bar with as many swatches as fit across its width.
+    function populateColorBar() {
+        const bar = document.getElementById("colorBar");
+        if (!bar) {
+            return;
+        }
+        const width = bar.clientWidth || (getViewport() ? getViewport().clientWidth : 700);
+        const count = Math.max(12, Math.floor(width / 22));
+        if (bar.dataset.count === String(count)) {
+            return; // Already populated for this width.
+        }
+        bar.dataset.count = String(count);
+        bar.innerHTML = "";
+
+        buildColorPalette(count).forEach(color => {
+            const sw = document.createElement("button");
+            sw.type = "button";
+            sw.className = "color-swatch";
+            sw.style.background = color;
+            sw.title = color;
+            if (color === paintColor) {
+                sw.classList.add("selected");
+            }
+            sw.addEventListener("pointerdown", e => e.stopPropagation());
+            sw.addEventListener("click", e => {
+                e.stopPropagation();
+                e.preventDefault();
+                selectPaintColor(color, sw);
+            });
+            bar.appendChild(sw);
+        });
+    }
+
+    function selectPaintColor(color, swatchEl) {
+        paintColor = color;
+        const bar = document.getElementById("colorBar");
+        if (bar) {
+            bar.querySelectorAll(".color-swatch").forEach(s => s.classList.toggle("selected", s === swatchEl));
+        }
+        const layer = document.getElementById("interactionLayer");
+        if (layer) {
+            layer.classList.add("painting");
+        }
+    }
+
+    function clearPaint() {
+        paintColor = null;
+        const bar = document.getElementById("colorBar");
+        if (bar) {
+            bar.querySelectorAll(".color-swatch.selected").forEach(s => s.classList.remove("selected"));
+        }
+        const layer = document.getElementById("interactionLayer");
+        if (layer) {
+            layer.classList.remove("painting");
+        }
+    }
+
+    // Add or replace a `style <id> fill:...` line so the node renders in the chosen color.
+    function setNodeColor(source, id, color) {
+        const stroke = shadeColor(color, -22);
+        const text = contrastColor(color);
+        const styleLine = `style ${id} fill:${color},stroke:${stroke},color:${text}`;
+
+        const esc = escapeRegExp(id);
+        const rx = new RegExp(`^\\s*style\\s+${esc}\\b`);
+        const lines = source.split(/\r?\n/);
+        const idx = lines.findIndex(l => rx.test(l));
+        if (idx >= 0) {
+            lines[idx] = styleLine;
+            return lines.join("\n");
+        }
+        let insertAt = lines.findIndex(l => /^\s*(classDef|class|linkStyle)\b/.test(l));
+        if (insertAt < 0) {
+            insertAt = lines.length;
+        }
+        lines.splice(insertAt, 0, styleLine);
+        return lines.join("\n");
+    }
+
+    // ----- Color helpers -----
+
+    function hslToHex(h, s, l) {
+        s /= 100;
+        l /= 100;
+        const k = n => (n + h / 30) % 12;
+        const a = s * Math.min(l, 1 - l);
+        const f = n => {
+            const c = l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+            return Math.round(255 * c).toString(16).padStart(2, "0");
+        };
+        return `#${f(0)}${f(8)}${f(4)}`;
+    }
+
+    function hexToRgb(hex) {
+        const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return m ? { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) } : null;
+    }
+
+    function rgbToHex(r, g, b) {
+        return "#" + [r, g, b].map(x => Math.max(0, Math.min(255, Math.round(x))).toString(16).padStart(2, "0")).join("");
+    }
+
+    function shadeColor(hex, percent) {
+        const c = hexToRgb(hex);
+        if (!c) {
+            return hex;
+        }
+        const t = percent < 0 ? 0 : 255;
+        const p = Math.abs(percent) / 100;
+        return rgbToHex((t - c.r) * p + c.r, (t - c.g) * p + c.g, (t - c.b) * p + c.b);
+    }
+
+    function contrastColor(hex) {
+        const c = hexToRgb(hex);
+        if (!c) {
+            return "#111827";
+        }
+        const yiq = (c.r * 299 + c.g * 587 + c.b * 114) / 1000;
+        return yiq >= 150 ? "#111827" : "#ffffff";
     }
 
     // ----- Create-connected-node prompt (drag into empty space) -----

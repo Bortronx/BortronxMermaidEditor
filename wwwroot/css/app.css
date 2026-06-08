@@ -428,6 +428,54 @@ textarea {
     display: none;
 }
 
+/* ----- Paint bucket color bar (bottom of preview) ----- */
+#colorBar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 26px;
+    display: flex;
+    align-items: stretch;
+    pointer-events: auto;
+    z-index: 5;
+    border-top: 1px solid var(--panel-border);
+    background: var(--panel-bg);
+    box-shadow: 0 -4px 12px var(--panel-shadow);
+}
+
+.color-swatch {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 100%;
+    padding: 0;
+    margin: 0;
+    border: none;
+    border-right: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 0;
+    cursor: pointer;
+}
+
+.color-swatch:last-child {
+    border-right: none;
+}
+
+.color-swatch:hover {
+    outline: 2px solid #2563eb;
+    outline-offset: -2px;
+    z-index: 1;
+}
+
+.color-swatch.selected {
+    outline: 3px solid #111827;
+    outline-offset: -3px;
+    z-index: 2;
+}
+
+#interactionLayer.painting .node-overlay {
+    cursor: crosshair;
+}
+
 #noodleSvg {
     position: absolute;
     inset: 0;
