@@ -25,7 +25,29 @@ window.mermaidVariableEditor = (() => {
     let edgeButtons = [];  // { from, to, el }
     let controlsVisible = true;
     let currentTheme = "default";
-    const connect = { active: false, fromId: "", x: 0, y: 0 };
+    let currentMode = "standard"; // "standard" | "dataflow"
+    const connect = { active: false, fromId: "", x: 0, y: 0, startX: 0, startY: 0 };
+
+    // Node types offered when dropping a connection into empty space. The "dataflow"
+    // set is shown in Data Flow Diagram mode; "standard" is shown otherwise.
+    const NODE_TYPES = {
+        standard: [
+            { label: "Rectangle", prefix: "n", open: "[\"", close: "\"]" },
+            { label: "Rounded", prefix: "n", open: "(\"", close: "\")" },
+            { label: "Stadium", prefix: "n", open: "([\"", close: "\"])" },
+            { label: "Subroutine", prefix: "n", open: "[[\"", close: "\"]]" },
+            { label: "Database", prefix: "n", open: "[(\"", close: "\")]" },
+            { label: "Circle", prefix: "n", open: "((\"", close: "\"))" },
+            { label: "Decision", prefix: "n", open: "{\"", close: "\"}" }
+        ],
+        dataflow: [
+            { label: "Entity", prefix: "e", open: "[\"", close: "\"]" },
+            { label: "Process", prefix: "p", open: "[[\"", close: "\"]]" },
+            { label: "Data Store", prefix: "d", open: "[(\"", close: "\")]" }
+        ]
+    };
+
+    let activeNodeModal = null;
 
     function init() {
         if (!initialized) {
@@ -564,6 +586,8 @@ window.mermaidVariableEditor = (() => {
         connect.fromId = id;
         connect.x = event.clientX;
         connect.y = event.clientY;
+        connect.startX = event.clientX;
+        connect.startY = event.clientY;
 
         const svg = document.getElementById("noodleSvg");
         if (svg) {
@@ -597,6 +621,8 @@ window.mermaidVariableEditor = (() => {
         const toId = over ? over.dataset.nodeId : "";
         const fromId = connect.fromId;
 
+        const movedFar = Math.hypot(event.clientX - connect.startX, event.clientY - connect.startY) > 6;
+
         connect.active = false;
         connect.fromId = "";
         nodeOverlays.forEach(o => o.el.classList.remove("connect-target"));
@@ -605,9 +631,12 @@ window.mermaidVariableEditor = (() => {
             svg.style.display = "none";
         }
 
-        // Dropping in empty space simply cancels (Nodexr behaviour).
         if (fromId && toId && fromId !== toId) {
+            // Dropped on another node: connect the two.
             applySource(addEdge(currentSource, fromId, toId));
+        } else if (fromId && !toId && movedFar) {
+            // Dropped in empty space: prompt for a node type + name, then connect.
+            promptNewNode(fromId);
         }
     }
 
@@ -633,6 +662,139 @@ window.mermaidVariableEditor = (() => {
     function noodlePath(x1, y1, x2, y2) {
         const ctrl = 5 + 0.4 * Math.abs(x2 - x1) + Math.min(0.2 * Math.abs(y2 - y1), 40);
         return `M ${x1} ${y1} C ${x1 + ctrl} ${y1} ${x2 - ctrl} ${y2} ${x2} ${y2}`;
+    }
+
+    // ----- Create-connected-node prompt (drag into empty space) -----
+
+    // Pick a fresh node id for the given prefix (e.g. "e3", "n5").
+    function nextNodeId(source, prefix) {
+        let max = 0;
+        const re = new RegExp(`(^|[^\\w])${escapeRegExp(prefix)}(\\d+)\\b`, "g");
+        let m;
+        while ((m = re.exec(source)) !== null) {
+            const n = parseInt(m[2], 10);
+            if (n > max) {
+                max = n;
+            }
+        }
+        return `${prefix}${max + 1}`;
+    }
+
+    // Append a new node of the chosen type and connect the source node to it.
+    function createConnectedNode(source, fromId, type, name) {
+        const id = nextNodeId(source, type.prefix);
+        const safeName = (name || type.label).replace(/"/g, "'").trim();
+        const nodeLine = `${id}${type.open}${safeName}${type.close}`;
+
+        const lines = source.split(/\r?\n/);
+        let idx = lines.findIndex(l => /^\s*(classDef|class|style|linkStyle)\b/.test(l));
+        if (idx < 0) {
+            idx = lines.length;
+        }
+        lines.splice(idx, 0, nodeLine);
+
+        return addEdge(lines.join("\n"), fromId, id);
+    }
+
+    function closeNodeModal() {
+        if (activeNodeModal) {
+            activeNodeModal.remove();
+            activeNodeModal = null;
+        }
+    }
+
+    function promptNewNode(fromId) {
+        closeNodeModal();
+
+        const types = NODE_TYPES[currentMode === "dataflow" ? "dataflow" : "standard"];
+        let selected = types[0];
+
+        const backdrop = document.createElement("div");
+        backdrop.className = "node-modal-backdrop";
+
+        const modal = document.createElement("div");
+        modal.className = "node-modal";
+
+        const title = document.createElement("div");
+        title.className = "node-modal-title";
+        title.textContent = "Create connected node";
+        modal.appendChild(title);
+
+        const typeWrap = document.createElement("div");
+        typeWrap.className = "node-modal-types";
+        const typeButtons = [];
+        types.forEach(t => {
+            const b = document.createElement("button");
+            b.type = "button";
+            b.className = "node-type-btn";
+            b.textContent = t.label;
+            if (t === selected) {
+                b.classList.add("selected");
+            }
+            b.addEventListener("click", () => {
+                selected = t;
+                typeButtons.forEach(x => x.classList.toggle("selected", x === b));
+                nameInput.focus();
+            });
+            typeButtons.push(b);
+            typeWrap.appendChild(b);
+        });
+        modal.appendChild(typeWrap);
+
+        const nameInput = document.createElement("input");
+        nameInput.type = "text";
+        nameInput.className = "node-modal-name";
+        nameInput.placeholder = "Node name";
+        modal.appendChild(nameInput);
+
+        const actions = document.createElement("div");
+        actions.className = "node-modal-actions";
+        const cancelBtn = document.createElement("button");
+        cancelBtn.type = "button";
+        cancelBtn.className = "node-modal-cancel";
+        cancelBtn.textContent = "Cancel";
+        const createBtn = document.createElement("button");
+        createBtn.type = "button";
+        createBtn.className = "node-modal-create";
+        createBtn.textContent = "Create";
+        actions.appendChild(cancelBtn);
+        actions.appendChild(createBtn);
+        modal.appendChild(actions);
+
+        backdrop.appendChild(modal);
+        document.body.appendChild(backdrop);
+        activeNodeModal = backdrop;
+        nameInput.focus();
+
+        function confirm() {
+            const name = nameInput.value;
+            closeNodeModal();
+            applySource(createConnectedNode(currentSource, fromId, selected, name));
+        }
+
+        cancelBtn.addEventListener("click", closeNodeModal);
+        createBtn.addEventListener("click", confirm);
+        backdrop.addEventListener("pointerdown", e => {
+            if (e.target === backdrop) {
+                closeNodeModal();
+            }
+        });
+        nameInput.addEventListener("keydown", e => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                confirm();
+            } else if (e.key === "Escape") {
+                e.preventDefault();
+                closeNodeModal();
+            }
+        });
+    }
+
+    // Tell the editor which app mode is active so the create-node prompt offers the
+    // right node types (Data Flow types in "dataflow" mode, generic types otherwise).
+    function setMode(mode) {
+        currentMode = mode === "dataflow" ? "dataflow" : "standard";
+        return currentMode;
     }
 
     // ----- Inline node text editing -----
@@ -916,5 +1078,5 @@ window.mermaidVariableEditor = (() => {
         }).join("\n");
     }
 
-    return { render, zoomIn, zoomOut, resetZoom, clearErrors, setControlsVisible, toggleControls, setTheme, copyToClipboard };
+    return { render, zoomIn, zoomOut, resetZoom, clearErrors, setControlsVisible, toggleControls, setTheme, copyToClipboard, setMode };
 })();

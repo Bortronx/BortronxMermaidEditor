@@ -169,6 +169,10 @@ end
 
     private async Task RenderDiagram()
     {
+        // Keep the JS editor in sync with the active mode so the create-node prompt
+        // offers the right node types (Data Flow types vs. generic types).
+        await JS.InvokeVoidAsync("mermaidVariableEditor.setMode",
+            CurrentMode == AppMode.DataFlow ? "dataflow" : "standard");
         await JS.InvokeVoidAsync("mermaidVariableEditor.render", MermaidSource, ShowVariableNames);
     }
 
