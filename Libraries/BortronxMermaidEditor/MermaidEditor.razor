@@ -3,7 +3,9 @@
 
 <div class="mermaid-editor page @(CurrentMode == AppMode.DataFlow ? "mode-dfd" : "")">
     <div class="header">
-        <div>
+        <div class="header-brand">
+            <img src="_content/BortronxMermaidEditor/BORTRONX_LOGO_white_squared.png" alt="Bortronx logo" class="header-logo" />
+            <div>
             <h1>
                 Bortronx Mermaid Editor
                 @if (CurrentMode == AppMode.DataFlow)
@@ -12,6 +14,7 @@
                 }
             </h1>
             <p>Simple Mermaid Editor.</p>
+            </div>
         </div>
         <div class="toolbar">
             <label class="toggle mode-select">
