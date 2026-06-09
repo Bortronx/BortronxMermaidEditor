@@ -268,9 +268,26 @@
     margin-bottom: 16px;
 }
 
+.header-brand {
+    display: flex;
+    align-items: stretch;
+    gap: 12px;
+}
+
+.header-logo {
+    width: 10%;
+    height: 50%;
+    padding-top: 5.2px;
+    min-width: 40px;
+    max-width: 48px;
+    /* white PNG → #14B8A6 (teal accent from social preview) */
+    filter: brightness(0) invert(70%) sepia(49%) saturate(441%) hue-rotate(124deg) brightness(82%) contrast(92%);
+}
+
 .header h1 {
     margin: 0 0 4px 0;
     font-size: 28px;
+    color: #14B8A6;
 }
 
 .header p {
