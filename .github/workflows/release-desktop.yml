@@ -1,0 +1,86 @@
+name: Release Desktop App
+
+# Builds the offline desktop wrapper for Windows and Linux and attaches the binaries
+# to a GitHub Release whenever a version tag (e.g. v1.0.0) is pushed.
+#
+# This workflow is fully self-contained: it consumes the published web app output but never
+# modifies it. Deleting this file (and the Desktop/ folder) removes the desktop app entirely.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+            name: windows-x64
+            asset: BortronxMermaidEditor-win-x64.exe
+            built: BortronxMermaidEditor.exe
+          - os: ubuntu-latest
+            rid: linux-x64
+            name: linux-x64
+            asset: BortronxMermaidEditor-linux-x64
+            built: BortronxMermaidEditor
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          dotnet-quality: 'preview'
+
+      # 1) Publish the Blazor WASM web app (the same output deployed to Firebase).
+      - name: Publish web app
+        run: dotnet publish src/BlazorMermaidEditor.csproj -c Release -o publish-web
+
+      # 2) Stage the published wwwroot for the desktop app to bundle.
+      - name: Stage web output into Desktop/wwwroot (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          if (Test-Path Desktop/wwwroot) { Remove-Item Desktop/wwwroot -Recurse -Force }
+          New-Item -ItemType Directory -Path Desktop/wwwroot | Out-Null
+          Copy-Item publish-web/wwwroot/* Desktop/wwwroot -Recurse -Force
+        shell: pwsh
+
+      - name: Stage web output into Desktop/wwwroot (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          rm -rf Desktop/wwwroot
+          mkdir -p Desktop/wwwroot
+          cp -r publish-web/wwwroot/. Desktop/wwwroot/
+
+      # 3) Publish the self-contained, single-file desktop binary for this OS.
+      - name: Publish desktop app
+        run: dotnet publish Desktop/BortronxMermaidEditor.Desktop.csproj -c Release -r ${{ matrix.rid }} -o publish-desktop
+
+      # 4) Rename to an OS-specific asset name for the release.
+      - name: Rename artifact (Windows)
+        if: runner.os == 'Windows'
+        run: Copy-Item "publish-desktop/${{ matrix.built }}" "${{ matrix.asset }}" -Force
+        shell: pwsh
+
+      - name: Rename artifact (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cp "publish-desktop/${{ matrix.built }}" "${{ matrix.asset }}"
+          chmod +x "${{ matrix.asset }}"
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.asset }}
+          fail_on_unmatched_files: true
