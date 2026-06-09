@@ -634,9 +634,9 @@ window.mermaidVariableEditor = (() => {
                 }
                 e.stopPropagation();
                 e.preventDefault();
-                const color = paintColor;
-                clearPaint();
-                applySource(setEdgeColor(currentSource, i, color));
+                // Stay armed so multiple edges can be painted until the color is
+                // deselected by clicking its swatch again.
+                applySource(setEdgeColor(currentSource, i, paintColor));
             });
 
             rp.parentElement.appendChild(hit);
@@ -740,12 +740,11 @@ window.mermaidVariableEditor = (() => {
         event.preventDefault();
         event.stopPropagation();
 
-        // If a paint color is armed, clicking a node fills it instead of connecting,
-        // then the paint bucket resets back to normal.
+        // If a paint color is armed, clicking a node fills it instead of connecting.
+        // The color stays armed so you can keep painting node after node until you
+        // deselect it by clicking its swatch again.
         if (paintColor) {
-            const color = paintColor;
-            clearPaint();
-            applySource(setNodeColor(currentSource, id, color));
+            applySource(setNodeColor(currentSource, id, paintColor));
             return;
         }
 
@@ -866,10 +865,9 @@ window.mermaidVariableEditor = (() => {
             sw.className = "color-swatch";
             sw.style.background = color;
             sw.title = color;
-            if (color === paintColor) {
+            if (paintColor && color === paintColor) {
                 sw.classList.add("selected");
-            }
-            if (color === lastColor) {
+            } else if (color === lastColor) {
                 sw.classList.add("last-selected");
             }
             sw.addEventListener("pointerdown", e => e.stopPropagation());
@@ -883,13 +881,20 @@ window.mermaidVariableEditor = (() => {
     }
 
     function selectPaintColor(color, swatchEl) {
+        // Clicking the color that is already armed toggles painting back off.
+        if (paintColor === color) {
+            clearPaint();
+            return;
+        }
         paintColor = color;
         lastColor = color;
         const bar = document.getElementById("colorBar");
         if (bar) {
+            // The armed swatch gets the black "selected" outline; clear any white
+            // "last-selected" outline left over from a previously chosen color.
             bar.querySelectorAll(".color-swatch").forEach(s => {
                 s.classList.toggle("selected", s === swatchEl);
-                s.classList.toggle("last-selected", s === swatchEl);
+                s.classList.remove("last-selected");
             });
         }
         const layer = document.getElementById("interactionLayer");
@@ -903,9 +908,13 @@ window.mermaidVariableEditor = (() => {
         paintColor = null;
         const bar = document.getElementById("colorBar");
         if (bar) {
-            // Only drop the armed "selected" state; keep "last-selected" so the bar
-            // continues to show the most recently chosen color outlined.
-            bar.querySelectorAll(".color-swatch.selected").forEach(s => s.classList.remove("selected"));
+            // The just-deselected swatch drops its black "selected" outline and takes
+            // on the white "last-selected" outline, so the bar still shows which
+            // color was last used while making clear nothing is armed.
+            bar.querySelectorAll(".color-swatch.selected").forEach(s => {
+                s.classList.remove("selected");
+                s.classList.add("last-selected");
+            });
         }
         const layer = document.getElementById("interactionLayer");
         if (layer) {

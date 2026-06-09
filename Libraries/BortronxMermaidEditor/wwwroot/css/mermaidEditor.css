@@ -524,19 +524,20 @@ body.grid-resizing {
     z-index: 1;
 }
 
+/* While a color is armed for painting its swatch shows a black outline. */
 .color-swatch.selected {
     outline: 3px solid #111827;
     outline-offset: -3px;
     z-index: 2;
 }
 
-/* The most recently selected color stays clearly outlined at all times, even after
-   the paint bucket has been applied, until a different color is picked. A strong
-   outline plus a light inner ring keeps it visible on any swatch hue. */
+/* Once the color is deselected it keeps a white outline so the bar still shows the
+   most recently used color while making clear nothing is currently armed. A thin
+   inner dark ring keeps the white outline visible on light swatch hues. */
 .color-swatch.last-selected {
-    outline: 3px solid #111827;
+    outline: 3px solid #ffffff;
     outline-offset: -3px;
-    box-shadow: inset 0 0 0 2px #ffffff;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.4);
     z-index: 3;
 }
 
