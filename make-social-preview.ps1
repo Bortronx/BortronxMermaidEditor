@@ -2,8 +2,9 @@ Add-Type -AssemblyName System.Drawing
 
 $W = 1200
 $H = 630
-$logoPath = "d:\PROJECTS_LOCAL\BlazorMermaidEditor\src\wwwroot\_bortronx_logo.png"
-$outPath  = "d:\PROJECTS_LOCAL\BlazorMermaidEditor\src\wwwroot\social-preview.png"
+$repoRoot = $PSScriptRoot
+$logoPath = Join-Path $repoRoot "src\wwwroot\_bortronx_logo.png"
+$outPath  = Join-Path $repoRoot "src\wwwroot\social-preview.png"
 
 $bmp = New-Object System.Drawing.Bitmap $W, $H
 $g = [System.Drawing.Graphics]::FromImage($bmp)
