@@ -33,7 +33,15 @@ packages/
 
 # Publish output
 publish/
+publish-web/
+publish-desktop/
 wwwroot/dist/
+
+# Desktop wrapper: bundled web output (generated from the published web app)
+Desktop/wwwroot/
+
+# Desktop wrapper: optional runtime debug log (enabled via BMED_DEBUG)
+bmed-debug.log
 
 # Test and coverage
 TestResults/

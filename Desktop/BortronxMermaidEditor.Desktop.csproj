@@ -1,0 +1,64 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Self-contained desktop wrapper for the Bortronx Mermaid Editor.
+
+    This project is INTENTIONALLY ISOLATED from the web app:
+      * It does NOT reference src/ or Libraries/.
+      * It only consumes the web app's PUBLISHED output, copied into Desktop/wwwroot
+        (by the GitHub Actions release workflow, or the one-line local command in README).
+      * Deleting this Desktop/ folder removes the desktop app with zero impact on the web build.
+
+    Cross-platform: net10.0 (NOT -windows) so the same code builds a Windows .exe and a
+    Linux binary. Photino uses each OS's built-in webview (WebView2 on Windows,
+    WebKitGTK on Linux).
+  -->
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <AssemblyName>BortronxMermaidEditor</AssemblyName>
+    <RootNamespace>BortronxMermaidEditor.Desktop</RootNamespace>
+    <Version>1.0.0</Version>
+    <Product>Bortronx Mermaid Editor</Product>
+    <Description>Offline desktop wrapper for the Bortronx Mermaid Editor.</Description>
+
+    <!-- Don't inherit the repo-wide LibrariesRoot logic; this project is standalone. -->
+    <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <!--
+    Single-file, self-contained publish settings only apply when a RuntimeIdentifier is
+    supplied (the release workflow passes `-r win-x64` / `-r linux-x64`). This keeps a plain
+    `dotnet build` / `dotnet run` working without a RID for quick local testing.
+  -->
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Photino.NET" Version="3.1.13" />
+  </ItemGroup>
+
+  <!--
+    Bundle the published web app. This folder is generated (gitignored) and may be absent
+    during a normal `dotnet build`; the glob simply matches nothing in that case.
+  -->
+  <ItemGroup>
+    <Content Include="wwwroot\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- Optional window/app icons, copied next to the executable when present. -->
+  <ItemGroup>
+    <Content Include="app.png" Condition="Exists('app.png')" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="app.ico" Condition="Exists('app.ico')" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>
