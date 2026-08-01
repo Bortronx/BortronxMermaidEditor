@@ -2,7 +2,7 @@
 
 [![Bortronx Mermaid Editor social preview](src/wwwroot/social-preview.png)](https://mermaid.bortronx.com/)
 
-## [Bortronx Mermaid Editor](https://mermaid.bortronx.com/)
+## [Bortronx Mermaid Editor Demo](https://mermaid.bortronx.com/)
 
 Bortronx Mermaid Editor is a Blazor-based Mermaid diagram editor with a live preview pane and a focused workflow for building standard Mermaid diagrams or data flow diagrams.
 
