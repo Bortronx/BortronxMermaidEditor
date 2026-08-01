@@ -50,7 +50,7 @@ window.mermaidVariableEditor = (() => {
             { label: "Flag", prefix: "n", open: ">\"", close: "\"]", shape: "flag" }
         ],
         dataflow: [
-            { label: "Entity", prefix: "e", open: "[\"", close: "\"]", shape: "rect" },
+            { label: "Entity", prefix: "e", open: "[/\"", close: "\"/]", shape: "parallelogram" },
             { label: "Process", prefix: "p", open: "[[\"", close: "\"]]", shape: "subroutine" },
             { label: "Data Store", prefix: "d", open: "[(\"", close: "\")]", shape: "cylinder" }
         ]
@@ -177,6 +177,79 @@ window.mermaidVariableEditor = (() => {
         if (consoleBox) {
             consoleBox.value = "";
         }
+    }
+
+    // Copies the console's full text (used by the console bar's Copy button).
+    async function copyConsoleOutput() {
+        const consoleBox = document.getElementById("errorConsole");
+        return copyToClipboard(consoleBox ? consoleBox.value : "");
+    }
+
+    // ----- Viewport-filling layout -----
+    // The source/preview grid is sized (in px, via updateViewportLayout) to exactly fill
+    // the space left in the viewport below the header (and, in Data Flow mode, its extra
+    // bars) down to the *collapsed* console bar height, so everything above the console
+    // fits in one screen with no scrolling. Only the collapsed bar's height is measured
+    // (never the expanded textarea's), so expanding/collapsing the console never resizes
+    // the grid -- it just adds/removes scrollable space below it, per design.
+    let viewportResizeBound = false;
+
+    function updateViewportLayout() {
+        const page = document.querySelector(".mermaid-editor.page");
+        const grid = document.querySelector(".grid");
+        if (!page || !grid) {
+            return;
+        }
+
+        // Below 900px (see the matching CSS media query) the source and preview panels
+        // stack in one column and are meant to be reached by scrolling, not squeezed to
+        // fit one screen -- so skip pinning the grid to a fixed viewport-filling height
+        // and let each panel's own min-height (from CSS) size it instead.
+        if (window.matchMedia("(max-width: 900px)").matches) {
+            grid.style.height = "";
+            return;
+        }
+
+        const pageStyle = getComputedStyle(page);
+        let reserved = (parseFloat(pageStyle.paddingTop) || 0) + (parseFloat(pageStyle.paddingBottom) || 0);
+
+        const addElementHeight = (el) => {
+            if (!el) {
+                return;
+            }
+            const cs = getComputedStyle(el);
+            if (cs.display === "none") {
+                return;
+            }
+            reserved += el.getBoundingClientRect().height;
+            reserved += parseFloat(cs.marginTop) || 0;
+            reserved += parseFloat(cs.marginBottom) || 0;
+        };
+
+        addElementHeight(page.querySelector(":scope > .header"));
+        addElementHeight(page.querySelector(":scope > .dfd-bar"));
+        addElementHeight(page.querySelector(":scope > .dfd-legend-panel"));
+
+        const consolePanel = page.querySelector(":scope > .console-panel");
+        if (consolePanel) {
+            const consoleStyle = getComputedStyle(consolePanel);
+            reserved += parseFloat(consoleStyle.marginTop) || 0;
+            const bar = consolePanel.querySelector(".panel-header");
+            if (bar) {
+                reserved += bar.getBoundingClientRect().height;
+            }
+        }
+
+        const available = window.innerHeight - reserved;
+        grid.style.height = Math.max(available, 240) + "px";
+    }
+
+    function bindViewportResize() {
+        if (viewportResizeBound) {
+            return;
+        }
+        viewportResizeBound = true;
+        window.addEventListener("resize", () => updateViewportLayout());
     }
 
     function bindPanZoom(viewport) {
@@ -1672,6 +1745,9 @@ window.mermaidVariableEditor = (() => {
     // sets --source-width on .grid so the two panels resize inversely. Clamped so
     // neither panel shrinks below MIN_PANEL_PX.
     function initResizer() {
+        bindViewportResize();
+        updateViewportLayout();
+
         if (resizerBound) return;
         const resizer = document.getElementById("gridResizer");
         const grid = resizer ? resizer.closest(".grid") : null;
@@ -1751,5 +1827,5 @@ window.mermaidVariableEditor = (() => {
         undoRedoRef = null;
     }
 
-    return { render, zoomIn, zoomOut, resetZoom, clearErrors, setControlsVisible, toggleControls, setColorsVisible, setTheme, copyToClipboard, setMode, toggleFullscreen, initResizer, registerUndoRedo, unregisterUndoRedo };
+    return { render, zoomIn, zoomOut, resetZoom, clearErrors, copyConsoleOutput, setControlsVisible, toggleControls, setColorsVisible, setTheme, copyToClipboard, setMode, toggleFullscreen, initResizer, updateViewportLayout, registerUndoRedo, unregisterUndoRedo };
 })();
