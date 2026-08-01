@@ -24,7 +24,7 @@
                     <option value="@AppMode.DataFlow">Data Flow Diagram Mode</option>
                 </select>
             </label>
-            <button type="button" @onclick="ToggleTheme">@(IsDark ? "Light mode" : "Dark mode")</button>
+            <button type="button" @onclick="ToggleTheme">@(IsDark ? "Light Theme" : "Dark Theme")</button>
             <button type="button" class="icon-btn" title="Undo (Ctrl+Z)" aria-label="Undo" @onclick="Undo" disabled="@(!CanUndo)">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <polyline points="1 4 1 10 7 10" />
@@ -44,15 +44,16 @@
     {
         <div class="dfd-bar">
             <span class="dfd-title">Data Flow tools</span>
-            <button type="button" @onclick="InsertEntity" title='Mermaid default box: ["Entity"]'>+ Entity</button>
+            <button type="button" @onclick="InsertEntity" title='Mermaid parallelogram: [/"Entity"/] (can also be represented as a subgraph: subgraph MySubGraph[ Nice SubGraph ])'>+ Entity</button>
             <button type="button" @onclick="InsertProcess" title="Mermaid subroutine shape: p1[[Process]]">+ Process</button>
             <button type="button" @onclick="InsertDataStore" title="Mermaid database node: d1[(DataStore)]">+ Data Store</button>
             <button type="button" @onclick="InsertDataFlow" title="Labeled arrow: A --&gt;|Data Name| B">+ Data Flow</button>
             <span class="dfd-sep"></span>
             <button type="button" @onclick="LoadDfdTemplate" title="Replace the editor with a Data Flow Diagram starter">Load DFD template</button>
-            <button type="button" @onclick="() => ShowLegendPanel = !ShowLegendPanel" title="Show or hide the legend definitions section">@(ShowLegendPanel ? "Hide legend definitions" : "Show legend definitions")</button>
+            <button type="button" @onclick="ToggleLegendPanel" title="Show or hide the legend definitions section">@(ShowLegendPanel ? "Hide legend definitions" : "Show legend definitions")</button>
+            <button type="button" @onclick="ToggleLegendPanel" title="Show or hide the legend definitions section">@(ShowLegendPanel ? "Hide legend definitions" : "Show legend definitions")</button>
             <div class="dfd-legend">
-                <span><span class="swatch entity"></span>Entity <code>["Name"]</code></span>
+                <span><span class="swatch entity"></span>Entity <code>[/"Name"/]</code></span>
                 <span><span class="swatch process"></span>Process <code>p1[["Name"]]</code></span>
                 <span><span class="swatch store"></span>Data Store <code>d1[("Name")]</code></span>
                 <span><span class="swatch flow"></span>Data Flow <code>--&gt;|Name|</code></span>
@@ -127,11 +128,17 @@
         </section>
     </div>
 
-    <section class="panel console-panel">
-        <div class="panel-header">
+    <section class="panel console-panel @(ConsoleExpanded ? "expanded" : "")">
+        <div class="panel-header console-bar">
+            <button type="button" class="icon-btn console-toggle" title="@(ConsoleExpanded ? "Collapse console" : "Expand console")" aria-label="Toggle console" aria-expanded="@(ConsoleExpanded ? "true" : "false")" @onclick="ToggleConsole">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polyline points="6 9 12 15 18 9" />
+                </svg>
+            </button>
             <span>Console</span>
             <div class="preview-actions">
                 <span class="small-note">Copy from here when Mermaid parsing fails</span>
+                <button type="button" @onclick="CopyConsole">@CopyConsoleLabel</button>
                 <button type="button" @onclick="ClearErrorConsole">Clear</button>
             </div>
         </div>
@@ -147,6 +154,12 @@
     private bool ControlsVisible { get; set; } = true;
     private bool ColorsVisible { get; set; } = true;
     private bool IsDark { get; set; }
+
+    // The console starts collapsed to a single bar (title + copy/clear buttons) so the
+    // source and preview panels always fill the viewport without scrolling; expanding it
+    // reveals the error log below and lets the page grow taller than the viewport.
+    private bool ConsoleExpanded { get; set; }
+    private string CopyConsoleLabel { get; set; } = "Copy";
 
     // Tracks recently inserted Data Flow node ids so "+ Data Flow" can link the last two.
     private readonly List<string> _recentDfdIds = new();
@@ -206,6 +219,14 @@ flowchart TD
             _selfRef = DotNetObjectReference.Create(this);
             await JS.InvokeVoidAsync("mermaidVariableEditor.registerUndoRedo", _selfRef);
         }
+
+        // Size the source/preview grid to exactly fill the remaining viewport height below
+        // the header (and, in Data Flow mode, its extra bars) down to the collapsed console
+        // bar, so nothing needs scrolling until the console is expanded. Re-checked after
+        // every render (mode switch, legend panel toggle, etc.) since it only measures the
+        // *collapsed* console bar height, expanding/collapsing the console itself never
+        // changes the result.
+        await JS.InvokeVoidAsync("mermaidVariableEditor.updateViewportLayout");
     }
 
     // Handles every edit to the source textarea, whether typed by the user or applied
@@ -381,6 +402,24 @@ flowchart TD
         await JS.InvokeVoidAsync("mermaidVariableEditor.clearErrors");
     }
 
+    // Collapsing/expanding the console never resizes the source/preview panels (see
+    // updateViewportLayout in mermaidEditor.js, which measures only the collapsed bar
+    // height); it just reveals the error log below, growing the page past the viewport.
+    private void ToggleConsole()
+    {
+        ConsoleExpanded = !ConsoleExpanded;
+    }
+
+    private async Task CopyConsole()
+    {
+        var ok = await JS.InvokeAsync<bool>("mermaidVariableEditor.copyConsoleOutput");
+        CopyConsoleLabel = ok ? "Copied!" : "Copy failed";
+        StateHasChanged();
+        await Task.Delay(1500);
+        CopyConsoleLabel = "Copy";
+        StateHasChanged();
+    }
+
     // ----- Mode menu -----
 
     private async Task OnModeChanged()
@@ -388,6 +427,11 @@ flowchart TD
         // The light/dark toggle applies to every mode. The Data Flow theme has its
         // own light and dark teal variants, so we just re-render with the current theme.
         await RenderDiagram();
+    }
+
+    private void ToggleLegendPanel()
+    {
+        ShowLegendPanel = !ShowLegendPanel;
     }
 
     // ----- Data Flow Diagram tools -----
@@ -415,7 +459,7 @@ flowchart TD
     private Task InsertEntity()
     {
         var n = NextId("e");
-        return AddDfdNode($"e{n}", $"[\"Entity {n}\"]");
+        return AddDfdNode($"e{n}", $"[/\"Entity {n}\"/]");
     }
 
     private Task InsertProcess()
@@ -542,8 +586,8 @@ flowchart TD
         foreach (Match m in Regex.Matches(source, "\\|([^|]+)\\|"))
             Add(flows, m.Groups[1].Value);
 
-        // Entities: id["..."] (plain single bracket; not [[..]] processes, not [(..)] stores).
-        foreach (Match m in Regex.Matches(source, "(?<![\\[\\(])\\[\"([^\"]+)\"\\](?![\\]\\)])"))
+        // Entities: id[/"..."/] (parallelogram).
+        foreach (Match m in Regex.Matches(source, "\\[/\"([^\"]+)\"/\\]"))
         {
             var label = m.Groups[1].Value;
             if (!label.StartsWith("Legend", StringComparison.OrdinalIgnoreCase))
@@ -655,10 +699,10 @@ flowchart TD
 
     private const string DfdTemplate = @"flowchart TD
 %% Data Flow Diagram
-%% Entity [""Name""]  |  Process p#[[""Name""]]  |  Data Store d#[(""Name"")]  |  Data Flow -->|Name|
+%% Entity [/""Name""/]  |  Process p#[[""Name""]]  |  Data Store d#[(""Name"")]  |  Data Flow -->|Name|
 
 %% Nodes
-e1[""External Entity""]
+e1[/""External Entity""/]
 p1[[""Get Data""]]
 d1[(""Data Collection"")]
 p2[[""Process Data""]]

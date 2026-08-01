@@ -388,6 +388,7 @@
 .grid {
     display: grid;
     grid-template-columns: var(--source-width, 42%) 10px 1fr;
+    grid-template-rows: 100%;
     gap: 16px;
     align-items: stretch;
 }
@@ -426,6 +427,9 @@ body.grid-resizing {
     border-radius: 16px;
     overflow: hidden;
     box-shadow: 0 8px 24px var(--panel-shadow);
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
 }
 
 .console-panel {
@@ -439,6 +443,9 @@ body.grid-resizing {
     display: flex;
     justify-content: space-between;
     gap: 12px;
+    flex-shrink: 0;
+    min-width: 0;
+    align-items: center;
 }
 
 .preview-actions {
@@ -446,6 +453,8 @@ body.grid-resizing {
     align-items: center;
     gap: 8px;
     margin-left: auto;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .preview-actions button,
@@ -471,7 +480,6 @@ body.grid-resizing {
 
 :where(.mermaid-editor) textarea {
     width: 100%;
-    min-height: 72vh;
     border: 0;
     padding: 16px;
     box-sizing: border-box;
@@ -490,10 +498,33 @@ body.grid-resizing {
     border-top: 1px solid var(--header-border);
     background: var(--console-bg);
     color: var(--console-text);
+    display: none;
+}
+
+.console-panel.expanded .console-output {
+    display: block;
+}
+
+/* Collapsed by default: the console is just a bar (title + copy/clear buttons). The
+   chevron button rotates to show open/closed state; expanding never resizes the
+   source/preview grid above it (see updateViewportLayout in mermaidEditor.js) -- it
+   just reveals the log below, growing the page past the viewport so only then do you
+   need to scroll. */
+.console-bar {
+    align-items: center;
+}
+
+.console-toggle svg {
+    transition: transform 0.15s ease;
+}
+
+.console-panel.expanded .console-toggle svg {
+    transform: rotate(180deg);
 }
 
 .preview-wrap {
-    min-height: 72vh;
+    flex: 1 1 auto;
+    min-height: 0;
     padding: 18px;
     overflow: hidden;
     position: relative;
@@ -571,7 +602,8 @@ body.grid-resizing {
    with colored spans over each known node id. Kept in sync on every keystroke/scroll. */
 .source-wrap {
     position: relative;
-    min-height: 72vh;
+    flex: 1 1 auto;
+    min-height: 0;
     background: var(--field-bg);
 }
 
@@ -1071,9 +1103,33 @@ body.grid-resizing {
 .small-note {
     color: var(--note);
     font-size: 13px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
+/* Below this width, treat the layout as mobile: stack the Mermaid source above the
+   preview (instead of squeezing both into side-by-side columns) and let the page
+   scroll down through source -> preview -> console, rather than forcing everything
+   to fit one screen (see updateViewportLayout's mobile bail-out in mermaidEditor.js,
+   which skips setting a fixed viewport-fill height on .grid at this width). */
 @media (max-width: 900px) {
-    .grid { grid-template-columns: 1fr; }
+    /* The top app header (logo/title + mode select + undo/redo) wraps onto its own
+       rows instead of forcing the page wider than the viewport. */
+    .header {
+        flex-wrap: wrap;
+    }
+    .header-brand,
+    .toolbar {
+        min-width: 0;
+        flex: 1 1 100%;
+    }
+
+    .grid {
+        grid-template-columns: 1fr;
+        grid-template-rows: none;
+    }
     .grid-resizer { display: none; }
+    .grid .panel { min-height: 70vh; }
 }
