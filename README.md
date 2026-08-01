@@ -2,6 +2,7 @@
 
 ![Bortronx Mermaid Editor social preview](src/wwwroot/social-preview.png)
 
+
 Bortronx Mermaid Editor is a Blazor-based Mermaid diagram editor with a live preview pane and a focused workflow for building standard Mermaid diagrams or data flow diagrams.
 
 The repository contains:
@@ -13,6 +14,8 @@ The repository contains:
 
 ## Features
 
+![Bortronx Mermaid Editor UI](examplelookmermaid.jpg)
+
 - Live Mermaid source editing with immediate preview updates.
 - Standard mode and Data Flow Diagram mode.
 - Data flow helpers for entities, processes, data stores, flows, and legend management.
@@ -20,6 +23,7 @@ The repository contains:
 - Undo and redo support.
 - Light and dark theme toggle.
 - Error console for Mermaid parsing issues.
+- 
 
 ## Run locally
 
