@@ -23,6 +23,7 @@ window.mermaidVariableEditor = (() => {
     let interactionBuilt = false;
     let nodeOverlays = []; // { id, el, g }
     let edgeButtons = [];  // { from, to, el }
+    let edgeLabelButtons = []; // { from, to, el }, positioned in lockstep with edgeButtons
     let controlsVisible = true;
     let colorsVisible = true;
     let currentTheme = "default";
@@ -30,23 +31,59 @@ window.mermaidVariableEditor = (() => {
     const connect = { active: false, fromId: "", x: 0, y: 0, startX: 0, startY: 0 };
 
     // Node types offered when dropping a connection into empty space. The "dataflow"
-    // set is shown in Data Flow Diagram mode; "standard" is shown otherwise.
+    // set is shown in Data Flow Diagram mode; "standard" is shown otherwise. Each entry's
+    // "shape" selects a CSS preview icon (see .shape-preview.shape-* rules) that mimics the
+    // rendered outline, shown in the create-node modal so the shape is obvious before creating.
     const NODE_TYPES = {
         standard: [
-            { label: "Rectangle", prefix: "n", open: "[\"", close: "\"]" },
-            { label: "Rounded", prefix: "n", open: "(\"", close: "\")" },
-            { label: "Stadium", prefix: "n", open: "([\"", close: "\"])" },
-            { label: "Subroutine", prefix: "n", open: "[[\"", close: "\"]]" },
-            { label: "Database", prefix: "n", open: "[(\"", close: "\")]" },
-            { label: "Circle", prefix: "n", open: "((\"", close: "\"))" },
-            { label: "Decision", prefix: "n", open: "{\"", close: "\"}" }
+            { label: "Rectangle", prefix: "n", open: "[\"", close: "\"]", shape: "rect" },
+            { label: "Rounded", prefix: "n", open: "(\"", close: "\")", shape: "round" },
+            { label: "Stadium", prefix: "n", open: "([\"", close: "\"])", shape: "stadium" },
+            { label: "Subroutine", prefix: "n", open: "[[\"", close: "\"]]", shape: "subroutine" },
+            { label: "Database", prefix: "n", open: "[(\"", close: "\")]", shape: "cylinder" },
+            { label: "Circle", prefix: "n", open: "((\"", close: "\"))", shape: "circle" },
+            { label: "Double Circle", prefix: "n", open: "(((\"", close: "\")))", shape: "doublecircle" },
+            { label: "Decision", prefix: "n", open: "{\"", close: "\"}", shape: "diamond" },
+            { label: "Hexagon", prefix: "n", open: "{{\"", close: "\"}}", shape: "hexagon" },
+            { label: "Parallelogram", prefix: "n", open: "[/\"", close: "\"/]", shape: "parallelogram" },
+            { label: "Trapezoid", prefix: "n", open: "[/\"", close: "\"\\]", shape: "trapezoid" },
+            { label: "Flag", prefix: "n", open: ">\"", close: "\"]", shape: "flag" }
         ],
         dataflow: [
-            { label: "Entity", prefix: "e", open: "[\"", close: "\"]" },
-            { label: "Process", prefix: "p", open: "[[\"", close: "\"]]" },
-            { label: "Data Store", prefix: "d", open: "[(\"", close: "\")]" }
+            { label: "Entity", prefix: "e", open: "[\"", close: "\"]", shape: "rect" },
+            { label: "Process", prefix: "p", open: "[[\"", close: "\"]]", shape: "subroutine" },
+            { label: "Data Store", prefix: "d", open: "[(\"", close: "\")]", shape: "cylinder" }
         ]
     };
+
+    // Shared open/close bracket alternation used to find a node's shape delimiters (for
+    // label read/write and the "show variable names" transform). Multi-character
+    // combinations must be listed before shorter ones they'd otherwise be mistaken for,
+    // e.g. the 3-paren double-circle "(((" before the 2-paren circle "((", and the
+    // trapezoid's "\]" close before the plain "]" fallback.
+    const NODE_OPEN_RE = "\\(\\(\\(|\\[\\[|\\[\\(|\\(\\[|\\(\\(|\\{\\{|\\[\\/|>|\\[|\\(|\\{";
+    const NODE_CLOSE_RE = "\\]\\]|\\)\\]|\\]\\)|\\)\\)\\)|\\)\\)|\\}\\}|\\/\\]|\\\\\\]|\\]|\\)|\\}";
+
+    // Number of entries in the .var-color-N palette (see mermaidEditor.css). Every node id
+    // is hashed to one of these so the same id always gets the same color, both in the
+    // "Show variable names" preview badge and in the source highlight overlay.
+    const VAR_COLOR_COUNT = 16;
+
+    // Simple deterministic string hash (djb2-ish), used only to pick a stable palette
+    // slot per id -- not for anything security-sensitive.
+    function hashStringToInt(str) {
+        let hash = 5381;
+        for (let i = 0; i < str.length; i++) {
+            hash = ((hash << 5) + hash + str.charCodeAt(i)) | 0;
+        }
+        return Math.abs(hash);
+    }
+
+    // Unquoted attribute-safe (letters/digits/hyphens only) class name for the given id's
+    // color slot.
+    function varColorClass(id) {
+        return `var-color-${hashStringToInt(id) % VAR_COLOR_COUNT}`;
+    }
 
     let activeNodeModal = null;
 
@@ -72,6 +109,7 @@ window.mermaidVariableEditor = (() => {
         const target = document.getElementById("diagramPreview");
         const viewport = document.getElementById("previewViewport");
         clearPreviewError();
+        updateSourceHighlight(source);
 
         const diagramText = showIds ? addNodeIdsToLabels(source) : source;
         const renderId = "mermaid-" + Date.now();
@@ -432,6 +470,7 @@ window.mermaidVariableEditor = (() => {
                 noodle.style.display = "none";
             }
             closeNodeEditor();
+            closeEdgeLabelEditor();
             clearPaint();
         }
 
@@ -546,6 +585,8 @@ window.mermaidVariableEditor = (() => {
         nodeOverlays = [];
         edgeButtons.forEach(b => b.el.remove());
         edgeButtons = [];
+        edgeLabelButtons.forEach(b => b.el.remove());
+        edgeLabelButtons = [];
 
         const groups = document.querySelectorAll("#diagramPreview g.node");
         groups.forEach(g => {
@@ -596,6 +637,26 @@ window.mermaidVariableEditor = (() => {
             el.addEventListener("pointerleave", () => setEdgeHighlight(i, false));
             layer.appendChild(el);
             edgeButtons.push({ from: edge.from, to: edge.to, el });
+
+            // Label pill: shows the current |label| text (or a "+" placeholder when there
+            // isn't one). Click to open an inline editor; committing an empty value
+            // removes the label entirely.
+            const labelBtn = document.createElement("button");
+            labelBtn.type = "button";
+            labelBtn.className = "edge-label-btn";
+            labelBtn.classList.toggle("empty", !edge.label);
+            labelBtn.textContent = edge.label || "+";
+            labelBtn.title = edge.label ? `Edit label "${edge.label}"` : "Add a label to this connection";
+            labelBtn.addEventListener("pointerdown", e => e.stopPropagation());
+            labelBtn.addEventListener("pointerenter", () => setEdgeHighlight(i, true));
+            labelBtn.addEventListener("pointerleave", () => setEdgeHighlight(i, false));
+            labelBtn.addEventListener("click", e => {
+                e.stopPropagation();
+                e.preventDefault();
+                openEdgeLabelEditor(edge.lineIndex, edge.label, labelBtn);
+            });
+            layer.appendChild(labelBtn);
+            edgeLabelButtons.push({ from: edge.from, to: edge.to, el: labelBtn });
         });
 
         buildEdgeHitPaths();
@@ -692,18 +753,29 @@ window.mermaidVariableEditor = (() => {
             o.el.style.height = `${r.height}px`;
         });
 
-        edgeButtons.forEach(b => {
+        edgeButtons.forEach((b, i) => {
+            const labelBtn = edgeLabelButtons[i];
             const gf = map.get(b.from);
             const gt = map.get(b.to);
             if (!gf || !gt) {
                 b.el.style.display = "none";
+                if (labelBtn) {
+                    labelBtn.el.style.display = "none";
+                }
                 return;
             }
             const c1 = centerOf(gf, vr);
             const c2 = centerOf(gt, vr);
+            const midX = (c1.x + c2.x) / 2;
+            const midY = (c1.y + c2.y) / 2;
             b.el.style.display = "flex";
-            b.el.style.left = `${(c1.x + c2.x) / 2}px`;
-            b.el.style.top = `${(c1.y + c2.y) / 2}px`;
+            b.el.style.left = `${midX}px`;
+            b.el.style.top = `${midY}px`;
+            if (labelBtn) {
+                labelBtn.el.style.display = "flex";
+                labelBtn.el.style.left = `${midX}px`;
+                labelBtn.el.style.top = `${midY}px`;
+            }
         });
 
         if (connect.active) {
@@ -1062,7 +1134,17 @@ window.mermaidVariableEditor = (() => {
             const b = document.createElement("button");
             b.type = "button";
             b.className = "node-type-btn";
-            b.textContent = t.label;
+            b.title = t.label;
+
+            const preview = document.createElement("span");
+            preview.className = `shape-preview shape-${t.shape || "rect"}`;
+            b.appendChild(preview);
+
+            const labelEl = document.createElement("span");
+            labelEl.className = "node-type-label";
+            labelEl.textContent = t.label;
+            b.appendChild(labelEl);
+
             if (t === selected) {
                 b.classList.add("selected");
             }
@@ -1145,6 +1227,7 @@ window.mermaidVariableEditor = (() => {
 
     function openNodeEditor(id, g) {
         closeNodeEditor();
+        closeEdgeLabelEditor();
 
         const viewport = getViewport();
         if (!viewport) {
@@ -1199,6 +1282,66 @@ window.mermaidVariableEditor = (() => {
         }
     }
 
+    // ----- Inline edge label editing -----
+
+    // Opens a small text input anchored on the edge's label pill so its |label| can be
+    // typed/edited in place. Committing an empty value removes the label (falls back to
+    // a plain, unlabeled arrow); Escape cancels without changing anything.
+    function openEdgeLabelEditor(lineIndex, currentLabel, anchorEl) {
+        closeNodeEditor();
+        closeEdgeLabelEditor();
+
+        const viewport = getViewport();
+        if (!viewport) {
+            return;
+        }
+
+        const vr = viewport.getBoundingClientRect();
+        const r = anchorEl.getBoundingClientRect();
+
+        const input = document.createElement("input");
+        input.type = "text";
+        input.className = "edge-label-editor";
+        input.value = currentLabel || "";
+        input.placeholder = "Edge label";
+        input.style.left = `${r.left - vr.left + r.width / 2}px`;
+        input.style.top = `${r.top - vr.top + r.height / 2}px`;
+
+        const commit = () => {
+            if (input.dataset.committed === "1") {
+                return;
+            }
+            input.dataset.committed = "1";
+            const value = input.value.trim();
+            closeEdgeLabelEditor();
+            applySource(setEdgeLabelAt(currentSource, lineIndex, value));
+        };
+
+        input.addEventListener("keydown", e => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                commit();
+            } else if (e.key === "Escape") {
+                e.preventDefault();
+                input.dataset.committed = "1";
+                closeEdgeLabelEditor();
+            }
+        });
+        input.addEventListener("blur", commit);
+        input.addEventListener("pointerdown", e => e.stopPropagation());
+
+        viewport.appendChild(input);
+        input.focus();
+        input.select();
+    }
+
+    function closeEdgeLabelEditor() {
+        const existing = document.querySelector("#previewViewport .edge-label-editor");
+        if (existing && existing.isConnected) {
+            existing.remove();
+        }
+    }
+
     function labelFromSvg(g) {
         const fo = g.querySelector("foreignObject");
         if (fo && fo.textContent.trim()) {
@@ -1228,10 +1371,10 @@ window.mermaidVariableEditor = (() => {
 
     function parseEdges(source) {
         const edges = [];
-        source.split(/\r?\n/).forEach(line => {
+        source.split(/\r?\n/).forEach((line, lineIndex) => {
             const edge = parseEdgeLine(line);
             if (edge) {
-                edges.push(edge);
+                edges.push({ ...edge, lineIndex });
             }
         });
         return edges;
@@ -1264,13 +1407,15 @@ window.mermaidVariableEditor = (() => {
         }
 
         let after = trimmed.slice(opIndex + op.length);
+        const labelMatch = after.match(/^\s*\|([^|]*)\|/);
+        const label = labelMatch ? labelMatch[1].trim() : "";
         after = after.replace(/^\s*\|[^|]*\|/, "").replace(/^\s*/, "");
         const to = after.match(/^([A-Za-z_][\w-]*)/);
         if (!to) {
             return null;
         }
 
-        return { from: from[1], to: to[1] };
+        return { from: from[1], to: to[1], op, label };
     }
 
     function addEdge(source, from, to) {
@@ -1297,6 +1442,36 @@ window.mermaidVariableEditor = (() => {
             }
         }
         return source;
+    }
+
+    // Regex used to rewrite a specific edge line in place: captures leading indent, the
+    // "from" id, the arrow operator, any existing |label|, the "to" id, and anything after
+    // (trailing whitespace/semicolons), so a label can be added/edited/removed without
+    // disturbing the rest of the line.
+    function buildEdgeLineRegex() {
+        const opsPattern = LINK_OPS.map(escapeRegExp).join("|");
+        return new RegExp(`^(\\s*)([A-Za-z_][\\w-]*)\\s*(${opsPattern})\\s*(?:\\|[^|]*\\|)?\\s*([A-Za-z_][\\w-]*)(.*)$`);
+    }
+
+    // Sets (or clears, when text is empty) the |label| on the edge at the given source line
+    // index. Used by the click-to-edit label pill in the preview.
+    function setEdgeLabelAt(source, lineIndex, text) {
+        const lines = source.split(/\r?\n/);
+        const line = lines[lineIndex];
+        if (line === undefined) {
+            return source;
+        }
+
+        const m = line.match(buildEdgeLineRegex());
+        if (!m) {
+            return source;
+        }
+
+        const [, indent, from, op, to, rest] = m;
+        const safe = text.replace(/\|/g, "").trim();
+        const labelPart = safe ? `|${safe}|` : "";
+        lines[lineIndex] = `${indent}${from} ${op}${labelPart} ${to}${rest}`;
+        return lines.join("\n");
     }
 
     function deleteNode(source, id) {
@@ -1342,7 +1517,7 @@ window.mermaidVariableEditor = (() => {
 
     function getNodeLabel(source, id) {
         const esc = escapeRegExp(id);
-        const rx = new RegExp(`(^|[^\\w-])${esc}(\\[\\[|\\[\\(|\\{\\{|\\[\\/|\\[|\\(|\\{)([^\\]\\}\\)\\n]*?)(\\]\\]|\\)\\]|\\}\\}|\\/\\]|\\]|\\)|\\})`);
+        const rx = new RegExp(`(^|[^\\w-])${esc}(${NODE_OPEN_RE})([^\\]\\}\\)\\n]*?)(${NODE_CLOSE_RE})`);
         const m = source.match(rx);
         if (!m) {
             return "";
@@ -1357,7 +1532,7 @@ window.mermaidVariableEditor = (() => {
     function setNodeLabel(source, id, text) {
         const esc = escapeRegExp(id);
         const safe = formatLabel(text);
-        const rx = new RegExp(`(^|[^\\w-])(${esc})(\\[\\[|\\[\\(|\\{\\{|\\[\\/|\\[|\\(|\\{)([^\\]\\}\\)\\n]*?)(\\]\\]|\\)\\]|\\}\\}|\\/\\]|\\]|\\)|\\})`);
+        const rx = new RegExp(`(^|[^\\w-])(${esc})(${NODE_OPEN_RE})([^\\]\\}\\)\\n]*?)(${NODE_CLOSE_RE})`);
 
         if (rx.test(source)) {
             return source.replace(rx, (full, pre, nid, open, _old, close) => `${pre}${nid}${open}${safe}${close}`);
@@ -1384,6 +1559,73 @@ window.mermaidVariableEditor = (() => {
         return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     }
 
+    // ----- Source highlight overlay -----
+    // Finds every id the current source defines/uses: node shape definitions (via the
+    // same NODE_OPEN_RE used for labels) plus bare edge endpoints (e.g. the "B" in
+    // "A --> B" before it's ever given its own shape).
+    function extractNodeIds(source) {
+        const ids = new Set();
+        const nodeRx = new RegExp(`(^|[^A-Za-z0-9_])([A-Za-z_][A-Za-z0-9_-]*)(?:${NODE_OPEN_RE})`, "g");
+
+        source.split(/\r?\n/).forEach(line => {
+            let m;
+            while ((m = nodeRx.exec(line)) !== null) {
+                ids.add(m[2]);
+            }
+        });
+
+        parseEdges(source).forEach(e => {
+            ids.add(e.from);
+            ids.add(e.to);
+        });
+
+        return ids;
+    }
+
+    function escapeHtml(text) {
+        return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    let sourceHighlightScrollBound = false;
+
+    // Rebuilds the #mermaidSourceHighlight overlay so every known node id is wrapped in
+    // its .var-color-N span, matching the color used for that id's badge in the preview.
+    // Called on every render (i.e. every keystroke), so it always mirrors the textarea.
+    function updateSourceHighlight(source) {
+        const pre = document.getElementById("mermaidSourceHighlight");
+        const textarea = document.getElementById("mermaidSourceInput");
+        if (!pre) {
+            return;
+        }
+
+        if (textarea && !sourceHighlightScrollBound) {
+            textarea.addEventListener("scroll", () => {
+                pre.scrollTop = textarea.scrollTop;
+                pre.scrollLeft = textarea.scrollLeft;
+            });
+            sourceHighlightScrollBound = true;
+        }
+
+        const ids = extractNodeIds(source);
+        const escaped = escapeHtml(source);
+
+        if (ids.size === 0) {
+            // A trailing newline keeps the overlay's last line height identical to the
+            // textarea's when the source itself ends with one.
+            pre.innerHTML = escaped + "\n";
+            return;
+        }
+
+        const idPattern = Array.from(ids)
+            .sort((a, b) => b.length - a.length)
+            .map(escapeRegExp)
+            .join("|");
+        const rx = new RegExp(`(^|[^A-Za-z0-9_-])(${idPattern})(?=[^A-Za-z0-9_-]|$)`, "g");
+
+        pre.innerHTML = escaped.replace(rx, (match, boundary, id) =>
+            `${boundary}<span class="${varColorClass(id)}">${id}</span>`) + "\n";
+    }
+
     // Adds node IDs to visible labels for common Mermaid flowchart syntax.
     // Original text in the editor is never changed; only the preview input is transformed.
     function addNodeIdsToLabels(source) {
@@ -1402,16 +1644,20 @@ window.mermaidVariableEditor = (() => {
                 return line;
             }
 
-            // Matches node labels after an optional connector, including:
-            // A[Label], A(Label), A{Label}, A[[Label]], A[(Label)], A{{Label}}, A[/Label/]
-            return line.replace(/(^|[^A-Za-z0-9_])([A-Za-z_][A-Za-z0-9_-]*)(\[\[|\[\(|\{\{|\[\/|\[|\(|\{)([^\]\}\)\n]*?)(\]\]|\)\]|\}\}|\/\]|\]|\)|\})/g,
+            // Matches node labels after an optional connector, including all shapes offered
+            // in the create-node modal (rectangle, rounded, stadium, subroutine, database,
+            // circle, double-circle, decision, hexagon, parallelogram, trapezoid, flag).
+            return line.replace(new RegExp(`(^|[^A-Za-z0-9_])([A-Za-z_][A-Za-z0-9_-]*)(${NODE_OPEN_RE})([^\\]\\}\\)\\n]*?)(${NODE_CLOSE_RE})`, "g"),
                 (match, prefix, id, open, label, close) => {
                     const cleanLabel = label.trim();
                     const hasQuotedLabel = cleanLabel.includes('"') || cleanLabel.includes("'");
                     if (!cleanLabel || hasQuotedLabel || cleanLabel.startsWith(id + ":") || cleanLabel.includes(`${id}<br/>`)) {
                         return match;
                     }
-                    return `${prefix}${id}${open}${id}: ${label}${close}`;
+                    // Bold + monospace + a per-id color (no quoted attributes, so it can't
+                    // confuse Mermaid's own text parsing) makes the id prefix visually pop
+                    // out from the label, in the same color used for this id in the source.
+                    return `${prefix}${id}${open}<code class=${varColorClass(id)}>${id}:</code> ${label}${close}`;
                 });
         }).join("\n");
     }

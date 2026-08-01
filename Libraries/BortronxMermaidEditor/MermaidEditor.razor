@@ -85,7 +85,10 @@
                 <span>Mermaid source</span>
                 <span class="small-note">Your code stays unchanged</span>
             </div>
-            <textarea id="mermaidSourceInput" value="@MermaidSource" @oninput="OnSourceInput"></textarea>
+            <div class="source-wrap">
+                <pre id="mermaidSourceHighlight" aria-hidden="true"></pre>
+                <textarea id="mermaidSourceInput" value="@MermaidSource" @oninput="OnSourceInput" spellcheck="false"></textarea>
+            </div>
         </section>
 
         <div class="grid-resizer" id="gridResizer" role="separator" aria-orientation="vertical" title="Drag to resize"></div>
