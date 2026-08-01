@@ -14,8 +14,6 @@ The repository contains:
 
 ## Features
 
-![Bortronx Mermaid Editor UI](examplelookmermaid.jpg)
-
 - Live Mermaid source editing with immediate preview updates.
 - Standard mode and Data Flow Diagram mode.
 - Data flow helpers for entities, processes, data stores, flows, and legend management.
@@ -23,7 +21,8 @@ The repository contains:
 - Undo and redo support.
 - Light and dark theme toggle.
 - Error console for Mermaid parsing issues.
-- 
+
+<img src="examplelookmermaid.jpg" alt="Bortronx Mermaid Editor UI" width="400" />
 
 ## Run locally
 
