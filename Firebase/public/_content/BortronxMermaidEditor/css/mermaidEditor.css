@@ -18,6 +18,30 @@
     --error-border: #f0b9b9;
     --error-text: #a40000;
     --accent: #2563eb;
+
+    /* Deterministic per-variable-name palette (see .var-color-N below). Each node id is
+       hashed to one of these 16 slots so the same id always gets the same color, shared
+       between the "Show variable names" preview badge and the source highlight overlay.
+       Built from 8 hues spaced 45deg apart (double the gap of a naive 16-way hue split)
+       so any two different hue groups are always clearly distinct; slots 0-7 are a vivid,
+       highly saturated variant of each hue and slots 8-15 are a muted/desaturated variant
+       of the same 8 hues, so even same-hue neighbors read as visibly different colors. */
+    --var-color-0: hsl(0, 80%, 38%);
+    --var-color-1: hsl(45, 80%, 38%);
+    --var-color-2: hsl(90, 80%, 32%);
+    --var-color-3: hsl(135, 80%, 32%);
+    --var-color-4: hsl(180, 80%, 32%);
+    --var-color-5: hsl(225, 80%, 45%);
+    --var-color-6: hsl(270, 80%, 45%);
+    --var-color-7: hsl(315, 80%, 42%);
+    --var-color-8: hsl(0, 40%, 48%);
+    --var-color-9: hsl(45, 45%, 40%);
+    --var-color-10: hsl(90, 40%, 38%);
+    --var-color-11: hsl(135, 40%, 40%);
+    --var-color-12: hsl(180, 40%, 38%);
+    --var-color-13: hsl(225, 45%, 55%);
+    --var-color-14: hsl(270, 45%, 55%);
+    --var-color-15: hsl(315, 40%, 50%);
 }
 
 /* Scope the base typography/colors to the editor wrapper instead of :root so the
@@ -47,6 +71,24 @@
     --error-bg: #3b1212;
     --error-border: #7f1d1d;
     --error-text: #fca5a5;
+
+    /* Same 8-hue vivid/muted scheme, lightened for contrast against dark panels. */
+    --var-color-0: hsl(0, 85%, 68%);
+    --var-color-1: hsl(45, 85%, 62%);
+    --var-color-2: hsl(90, 75%, 62%);
+    --var-color-3: hsl(135, 70%, 62%);
+    --var-color-4: hsl(180, 70%, 60%);
+    --var-color-5: hsl(225, 85%, 75%);
+    --var-color-6: hsl(270, 80%, 78%);
+    --var-color-7: hsl(315, 80%, 72%);
+    --var-color-8: hsl(0, 45%, 72%);
+    --var-color-9: hsl(45, 45%, 68%);
+    --var-color-10: hsl(90, 40%, 65%);
+    --var-color-11: hsl(135, 40%, 65%);
+    --var-color-12: hsl(180, 40%, 65%);
+    --var-color-13: hsl(225, 50%, 80%);
+    --var-color-14: hsl(270, 45%, 82%);
+    --var-color-15: hsl(315, 45%, 78%);
 }
 
 /* ----- Data Flow Diagram mode -----
@@ -487,6 +529,86 @@ body.grid-resizing {
     min-height: 100%;
 }
 
+/* "Show variable names" id prefix (e.g. "A:") injected into node labels. The color
+   itself comes from the matching .var-color-N class (see the palette below); this
+   just gives every one of them the same bold, clearly-monospace treatment. */
+#diagramPreview code {
+    font-family: "Cascadia Code", "Courier New", Consolas, monospace;
+    font-weight: 700;
+}
+
+/* Per-variable-name color classes. Each node id is hashed (see varColorClass() in
+   mermaidEditor.js) to one of these 16 slots, applied both to the id badge in the
+   preview and to matching id tokens in the source highlight overlay below. */
+.var-color-0, .var-color-1, .var-color-2, .var-color-3,
+.var-color-4, .var-color-5, .var-color-6, .var-color-7,
+.var-color-8, .var-color-9, .var-color-10, .var-color-11,
+.var-color-12, .var-color-13, .var-color-14, .var-color-15 {
+    font-weight: 700;
+    border-radius: 3px;
+}
+
+.var-color-0 { color: var(--var-color-0); }
+.var-color-1 { color: var(--var-color-1); }
+.var-color-2 { color: var(--var-color-2); }
+.var-color-3 { color: var(--var-color-3); }
+.var-color-4 { color: var(--var-color-4); }
+.var-color-5 { color: var(--var-color-5); }
+.var-color-6 { color: var(--var-color-6); }
+.var-color-7 { color: var(--var-color-7); }
+.var-color-8 { color: var(--var-color-8); }
+.var-color-9 { color: var(--var-color-9); }
+.var-color-10 { color: var(--var-color-10); }
+.var-color-11 { color: var(--var-color-11); }
+.var-color-12 { color: var(--var-color-12); }
+.var-color-13 { color: var(--var-color-13); }
+.var-color-14 { color: var(--var-color-14); }
+.var-color-15 { color: var(--var-color-15); }
+
+/* ----- Mermaid source syntax highlight overlay -----
+   #mermaidSourceInput's own text is made transparent so this <pre> (an exact visual
+   twin, same font/padding/line-height, absolutely positioned underneath) shows through
+   with colored spans over each known node id. Kept in sync on every keystroke/scroll. */
+.source-wrap {
+    position: relative;
+    min-height: 72vh;
+    background: var(--field-bg);
+}
+
+.source-wrap #mermaidSourceHighlight,
+.source-wrap #mermaidSourceInput {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    padding: 16px;
+    box-sizing: border-box;
+    border: 0;
+    font-family: Consolas, Monaco, monospace;
+    font-size: 14px;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    overflow: auto;
+}
+
+#mermaidSourceHighlight {
+    color: var(--field-text);
+    background: transparent;
+    pointer-events: none;
+    user-select: none;
+    z-index: 1;
+}
+
+#mermaidSourceInput {
+    z-index: 2;
+    background: transparent;
+    color: transparent;
+    caret-color: var(--field-text);
+    resize: none;
+}
+
 /* Nodexr-style interaction layer */
 #interactionLayer {
     position: absolute;
@@ -562,10 +684,11 @@ body.grid-resizing {
     cursor: crosshair;
 }
 
-/* While a paint color is armed, the delete buttons must not intercept clicks meant
+/* While a paint color is armed, the delete/label buttons must not intercept clicks meant
    for the arrows/nodes underneath, so the paint bucket can reach the edge hit paths. */
 #interactionLayer.painting .node-delete,
-#interactionLayer.painting .edge-delete {
+#interactionLayer.painting .edge-delete,
+#interactionLayer.painting .edge-label-btn {
     pointer-events: none;
 }
 
@@ -688,6 +811,62 @@ body.grid-resizing {
     pointer-events: auto;
 }
 
+/* Edge label pill: sits just above the edge's delete button at the arrow's midpoint.
+   Shows the current label text, or a faint "+" when the edge has none yet. Click to
+   open an inline editor; clearing the text removes the label. */
+.mermaid-editor .edge-label-btn {
+    position: absolute;
+    transform: translate(-50%, calc(-100% - 18px));
+    max-width: 160px;
+    padding: 2px 8px;
+    box-sizing: border-box;
+    line-height: 1.3;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    border: 1px solid var(--btn-border);
+    background: var(--btn-bg);
+    color: var(--btn-text);
+    pointer-events: auto;
+    opacity: 0.3;
+    transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.mermaid-editor .edge-label-btn.empty {
+    font-weight: 700;
+    color: var(--accent);
+}
+
+.preview-wrap:hover .edge-label-btn {
+    opacity: 0.9;
+}
+
+.mermaid-editor .edge-label-btn:hover {
+    opacity: 1;
+    border-color: var(--accent);
+}
+
+.edge-label-editor {
+    position: absolute;
+    z-index: 6;
+    transform: translate(-50%, -50%);
+    min-width: 120px;
+    border: 2px solid #2563eb;
+    border-radius: 999px;
+    padding: 6px 10px;
+    font-size: 13px;
+    text-align: center;
+    box-shadow: 0 6px 18px rgba(37, 99, 235, 0.25);
+    pointer-events: auto;
+}
+
 /* ----- Create-connected-node modal (drag into empty space) ----- */
 .node-modal-backdrop {
     position: fixed;
@@ -700,7 +879,9 @@ body.grid-resizing {
 }
 
 .node-modal {
-    width: min(380px, 90vw);
+    width: min(460px, 92vw);
+    max-height: 86vh;
+    overflow-y: auto;
     background: var(--panel-bg);
     color: var(--text);
     border: 1px solid var(--panel-border);
@@ -716,26 +897,124 @@ body.grid-resizing {
 }
 
 .node-modal-types {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
     gap: 8px;
     margin-bottom: 14px;
 }
 
 .node-type-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
     border: 1px solid var(--btn-border);
     background: var(--btn-bg);
     color: var(--btn-text);
     border-radius: 8px;
-    padding: 6px 10px;
-    font-size: 13px;
+    padding: 8px 6px;
+    font-size: 12px;
     font-weight: 600;
     cursor: pointer;
+}
+
+.node-type-btn .node-type-label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
 }
 
 .node-type-btn.selected {
     border-color: var(--accent);
     background: var(--accent);
+    color: #ffffff;
+}
+
+/* Shape preview icons shown on each type button, so the option's outline is obvious
+   before creating. Built with plain CSS (border/border-radius/clip-path) rather than a
+   rendered Mermaid node, so they appear instantly with no async cost. */
+.shape-preview {
+    display: block;
+    width: 40px;
+    height: 24px;
+    box-sizing: border-box;
+    border: 2px solid currentColor;
+    background: transparent;
+    flex-shrink: 0;
+}
+
+.shape-preview.shape-rect {
+    border-radius: 2px;
+}
+
+.shape-preview.shape-round {
+    border-radius: 8px;
+}
+
+.shape-preview.shape-stadium {
+    border-radius: 999px;
+}
+
+.shape-preview.shape-subroutine {
+    border-radius: 2px;
+    box-shadow: inset 3px 0 0 currentColor, inset -3px 0 0 currentColor;
+}
+
+.shape-preview.shape-cylinder {
+    border-radius: 50% 50% 4px 4px / 35% 35% 8px 8px;
+}
+
+.shape-preview.shape-circle {
+    width: 26px;
+    border-radius: 50%;
+}
+
+.shape-preview.shape-doublecircle {
+    width: 26px;
+    border-radius: 50%;
+    outline: 2px solid currentColor;
+    outline-offset: 3px;
+}
+
+.shape-preview.shape-diamond {
+    border: none;
+    width: 32px;
+    height: 32px;
+    background: currentColor;
+    clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+
+.shape-preview.shape-hexagon {
+    border: none;
+    background: currentColor;
+    clip-path: polygon(22% 0%, 78% 0%, 100% 50%, 78% 100%, 22% 100%, 0% 50%);
+}
+
+.shape-preview.shape-parallelogram {
+    border: none;
+    background: currentColor;
+    clip-path: polygon(22% 0%, 100% 0%, 78% 100%, 0% 100%);
+}
+
+.shape-preview.shape-trapezoid {
+    border: none;
+    background: currentColor;
+    clip-path: polygon(28% 0%, 72% 0%, 100% 100%, 0% 100%);
+}
+
+.shape-preview.shape-flag {
+    border: none;
+    background: currentColor;
+    clip-path: polygon(0 0, 80% 0, 100% 50%, 80% 100%, 0 100%);
+}
+
+.node-type-btn .shape-preview {
+    color: var(--btn-text);
+}
+
+.node-type-btn.selected .shape-preview {
     color: #ffffff;
 }
 
