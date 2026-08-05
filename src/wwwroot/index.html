@@ -66,5 +66,24 @@
         Loading...
     </div>
     <script src="_framework/blazor.webassembly.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-analytics.js";
+
+        // TODO: Add SDKs for Firebase products that you want to use
+        // https://firebase.google.com/docs/web/setup#available-libraries
+         const firebaseConfig = {
+            apiKey: "AIzaSyAjunPhS1Y_AtqaccVUO7sltm4pyA3HNa8",
+            authDomain: "bortronxmermaid.firebaseapp.com",
+            projectId: "bortronxmermaid",
+            storageBucket: "bortronxmermaid.firebasestorage.app",
+            messagingSenderId: "738238610475",
+            appId: "1:738238610475:web:29c412b63ac54ac27ebe6e",
+            measurementId: "G-N4N25BJ6RW"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        getAnalytics(app);
+    </script>
 </body>
 </html>
