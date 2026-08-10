@@ -87,6 +87,7 @@
                 <span class="small-note">Your code stays unchanged</span>
             </div>
             <div class="source-wrap">
+                <pre id="mermaidSourceGutter" aria-hidden="true"></pre>
                 <pre id="mermaidSourceHighlight" aria-hidden="true"></pre>
                 <textarea id="mermaidSourceInput" value="@MermaidSource" @oninput="OnSourceInput" spellcheck="false"></textarea>
             </div>
@@ -98,7 +99,6 @@
             <div class="panel-header">
                 <span>Preview</span>
                 <div class="preview-actions">
-                    <span class="small-note">Drag a node to connect · double-click to edit · hover for delete</span>
                     <label class="toggle">
                         <input type="checkbox" @bind="ShowVariableNames" @bind:after="RenderDiagram" />
                         Show variable names
@@ -107,6 +107,11 @@
                     @if (ControlsVisible)
                     {
                         <button type="button" @onclick="ToggleColors">@(ColorsVisible ? "Hide colors" : "Show colors")</button>
+                    }
+                    <button type="button" @onclick="AddStandaloneNode" title="Add a new node that isn't connected to anything">+ Node</button>
+                    @if (ControlsVisible)
+                    {
+                        <button type="button" @onclick="StartSubgraphSelection" title="Click nodes in the preview to group them into a new subgraph">+ Subgraph</button>
                     }
                     <button type="button" @onclick="ZoomOut">-</button>
                     <button type="button" @onclick="ResetZoom">Reset</button>
@@ -389,6 +394,16 @@ flowchart TD
     {
         ColorsVisible = !ColorsVisible;
         await JS.InvokeVoidAsync("mermaidVariableEditor.setColorsVisible", ColorsVisible);
+    }
+
+    private async Task AddStandaloneNode()
+    {
+        await JS.InvokeVoidAsync("mermaidVariableEditor.promptStandaloneNode");
+    }
+
+    private async Task StartSubgraphSelection()
+    {
+        await JS.InvokeVoidAsync("mermaidVariableEditor.startSubgraphSelection");
     }
 
     private async Task ToggleTheme()

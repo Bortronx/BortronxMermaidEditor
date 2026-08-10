@@ -24,6 +24,7 @@ window.mermaidVariableEditor = (() => {
     let nodeOverlays = []; // { id, el, g }
     let edgeButtons = [];  // { from, to, el }
     let edgeLabelButtons = []; // { from, to, el }, positioned in lockstep with edgeButtons
+    let subgraphButtons = []; // { id, el, g }, a delete badge pinned to each subgraph's box
     let controlsVisible = true;
     let colorsVisible = true;
     let currentTheme = "default";
@@ -350,21 +351,30 @@ window.mermaidVariableEditor = (() => {
     }
 
     function onPointerDown(event) {
-        if (event.button !== 0) {
+        const isMiddleClick = event.button === 1;
+        if (event.button !== 0 && !isMiddleClick) {
             return;
         }
 
-        // Don't pan when interacting with nodes, connection handles, or the inline editor.
-        if (connect.active) {
-            return;
-        }
-        if (event.target.closest("#interactionLayer") || event.target.closest(".node-label-editor")) {
-            return;
+        // Don't pan when interacting with nodes, connection handles, or the inline editor,
+        // unless it's a middle-click, which always pans regardless of what's underneath.
+        if (!isMiddleClick) {
+            if (connect.active) {
+                return;
+            }
+            if (event.target.closest("#interactionLayer") || event.target.closest(".node-label-editor")) {
+                return;
+            }
         }
 
         const svg = getSvgElement();
         if (!svg) {
             return;
+        }
+
+        if (isMiddleClick) {
+            // Prevent the browser's native middle-click autoscroll cursor from engaging.
+            event.preventDefault();
         }
 
         isDragging = true;
@@ -545,6 +555,7 @@ window.mermaidVariableEditor = (() => {
             closeNodeEditor();
             closeEdgeLabelEditor();
             clearPaint();
+            cancelSubgraphSelection();
         }
 
         return controlsVisible;
@@ -660,6 +671,8 @@ window.mermaidVariableEditor = (() => {
         edgeButtons = [];
         edgeLabelButtons.forEach(b => b.el.remove());
         edgeLabelButtons = [];
+        subgraphButtons.forEach(b => b.el.remove());
+        subgraphButtons = [];
 
         const groups = document.querySelectorAll("#diagramPreview g.node");
         groups.forEach(g => {
@@ -670,6 +683,9 @@ window.mermaidVariableEditor = (() => {
 
             const el = document.createElement("div");
             el.className = "node-overlay";
+            if (subgraphSelectActive && subgraphSelection.has(id)) {
+                el.classList.add("subgraph-selected");
+            }
             el.dataset.nodeId = id;
 
             const del = document.createElement("button");
@@ -681,6 +697,8 @@ window.mermaidVariableEditor = (() => {
 
             el.addEventListener("pointerdown", e => onNodePointerDown(e, id));
             el.addEventListener("dblclick", e => onNodeDblClick(e, id, g));
+            el.addEventListener("pointerenter", () => highlightSourceLine(findNodeLineNumber(currentSource, id)));
+            el.addEventListener("pointerleave", clearSourceLineHighlight);
             del.addEventListener("pointerdown", e => e.stopPropagation());
             del.addEventListener("click", e => {
                 e.stopPropagation();
@@ -690,6 +708,33 @@ window.mermaidVariableEditor = (() => {
 
             layer.appendChild(el);
             nodeOverlays.push({ id, el, g });
+        });
+
+        const clusters = document.querySelectorAll("#diagramPreview g.cluster");
+        clusters.forEach(g => {
+            const id = clusterIdFromG(g);
+            if (!id) {
+                return;
+            }
+
+            const del = document.createElement("button");
+            del.type = "button";
+            del.className = "subgraph-delete";
+            del.textContent = "\u00d7";
+            del.title = `Remove subgraph ${id}`;
+            del.addEventListener("pointerdown", e => e.stopPropagation());
+            del.addEventListener("click", e => {
+                e.stopPropagation();
+                e.preventDefault();
+                applySource(removeSubgraph(currentSource, id));
+            });
+            del.addEventListener("pointerenter", () => highlightSourceLine(findSubgraphLineNumber(currentSource, id)));
+            del.addEventListener("pointerleave", clearSourceLineHighlight);
+            g.addEventListener("pointerenter", () => highlightSourceLine(findSubgraphLineNumber(currentSource, id)));
+            g.addEventListener("pointerleave", clearSourceLineHighlight);
+
+            layer.appendChild(del);
+            subgraphButtons.push({ id, el: del, g });
         });
 
         const edges = parseEdges(currentSource);
@@ -705,9 +750,9 @@ window.mermaidVariableEditor = (() => {
                 e.preventDefault();
                 applySource(removeEdge(currentSource, edge.from, edge.to));
             });
-            // Highlight the matching arrow while hovering its delete button.
-            el.addEventListener("pointerenter", () => setEdgeHighlight(i, true));
-            el.addEventListener("pointerleave", () => setEdgeHighlight(i, false));
+            // Highlight the matching arrow (and its source line) while hovering its delete button.
+            el.addEventListener("pointerenter", () => { setEdgeHighlight(i, true); highlightSourceLine(edge.lineIndex + 1); });
+            el.addEventListener("pointerleave", () => { setEdgeHighlight(i, false); clearSourceLineHighlight(); });
             layer.appendChild(el);
             edgeButtons.push({ from: edge.from, to: edge.to, el });
 
@@ -721,8 +766,8 @@ window.mermaidVariableEditor = (() => {
             labelBtn.textContent = edge.label || "+";
             labelBtn.title = edge.label ? `Edit label "${edge.label}"` : "Add a label to this connection";
             labelBtn.addEventListener("pointerdown", e => e.stopPropagation());
-            labelBtn.addEventListener("pointerenter", () => setEdgeHighlight(i, true));
-            labelBtn.addEventListener("pointerleave", () => setEdgeHighlight(i, false));
+            labelBtn.addEventListener("pointerenter", () => { setEdgeHighlight(i, true); highlightSourceLine(edge.lineIndex + 1); });
+            labelBtn.addEventListener("pointerleave", () => { setEdgeHighlight(i, false); clearSourceLineHighlight(); });
             labelBtn.addEventListener("click", e => {
                 e.stopPropagation();
                 e.preventDefault();
@@ -738,8 +783,8 @@ window.mermaidVariableEditor = (() => {
     }
 
     // Add a transparent, wide companion path over each rendered edge so the paint bucket
-    // can target it. The hit paths live inside the SVG, so they scale/pan with the
-    // diagram automatically. They only receive pointer events while a color is armed.
+    // and hover-to-highlight-source can target it. The hit paths live inside the SVG, so
+    // they scale/pan with the diagram automatically.
     function buildEdgeHitPaths() {
         const svg = getSvgElement();
         if (!svg) {
@@ -748,6 +793,7 @@ window.mermaidVariableEditor = (() => {
 
         svg.querySelectorAll("path.edge-hit").forEach(p => p.remove());
 
+        const edges = parseEdges(currentSource);
         const realPaths = svg.querySelectorAll("g.edgePaths > path");
         realPaths.forEach((rp, i) => {
             const hit = rp.cloneNode(false);
@@ -756,9 +802,21 @@ window.mermaidVariableEditor = (() => {
             hit.style.fill = "none";
             hit.style.stroke = "transparent";
             hit.style.strokeWidth = "16px";
-            hit.style.cursor = "crosshair";
-            hit.style.pointerEvents = paintColor ? "stroke" : "none";
+            hit.style.cursor = paintColor ? "crosshair" : "pointer";
+            hit.style.pointerEvents = "stroke";
             hit.dataset.edgeIndex = String(i);
+
+            const edge = edges[i];
+            hit.addEventListener("pointerenter", () => {
+                setEdgeHighlight(i, true);
+                if (edge) {
+                    highlightSourceLine(edge.lineIndex + 1);
+                }
+            });
+            hit.addEventListener("pointerleave", () => {
+                setEdgeHighlight(i, false);
+                clearSourceLineHighlight();
+            });
 
             // Use pointerdown (not click) so the paint applies before the viewport pan
             // handler can start a drag and steal the gesture.
@@ -777,14 +835,15 @@ window.mermaidVariableEditor = (() => {
         });
     }
 
-    // Toggle whether the edge hit paths capture pointer events (only while painting).
+    // Toggle the edge hit paths' cursor to reflect paint-bucket availability (pointer
+    // events stay active at all times so hovering can still highlight the source line).
     function setEdgeHitActive(active) {
         const svg = getSvgElement();
         if (!svg) {
             return;
         }
         svg.querySelectorAll("path.edge-hit").forEach(p => {
-            p.style.pointerEvents = active ? "stroke" : "none";
+            p.style.cursor = active ? "crosshair" : "pointer";
         });
     }
 
@@ -851,6 +910,17 @@ window.mermaidVariableEditor = (() => {
             }
         });
 
+        subgraphButtons.forEach(b => {
+            if (!b.g.isConnected) {
+                b.el.style.display = "none";
+                return;
+            }
+            const r = b.g.getBoundingClientRect();
+            b.el.style.display = "flex";
+            b.el.style.left = `${r.right - vr.left}px`;
+            b.el.style.top = `${r.top - vr.top}px`;
+        });
+
         if (connect.active) {
             updateNoodle();
         }
@@ -875,6 +945,43 @@ window.mermaidVariableEditor = (() => {
         return title && title.textContent ? title.textContent.trim() : "";
     }
 
+    // Mermaid v11 cluster (subgraph) group ids look like "<renderId>-<subgraphId>"
+    // (no numeric suffix), so the subgraph id is just the last hyphen-separated segment.
+    function clusterIdFromG(g) {
+        const raw = g.getAttribute("id") || "";
+        const m = raw.match(/-([^-\s]+)$/);
+        return m ? m[1] : raw;
+    }
+
+    // Finds the 1-based source line where a node is defined (i.e. has its shape/label),
+    // falling back to the first line it appears on at all (e.g. a node only ever used
+    // in an edge, with no explicit shape declaration).
+    function findNodeLineNumber(source, id) {
+        const lines = source.split(/\r?\n/);
+        const idEsc = escapeRegExp(id);
+        const shapeRe = new RegExp(`(^|[^A-Za-z0-9_-])${idEsc}(${NODE_OPEN_RE})`);
+        for (let i = 0; i < lines.length; i++) {
+            if (shapeRe.test(lines[i])) {
+                return i + 1;
+            }
+        }
+        const tokenRe = new RegExp(`(^|[^A-Za-z0-9_-])${idEsc}(?=[^A-Za-z0-9_-]|$)`);
+        for (let i = 0; i < lines.length; i++) {
+            if (tokenRe.test(lines[i])) {
+                return i + 1;
+            }
+        }
+        return null;
+    }
+
+    // Finds the 1-based source line of the `subgraph <id>` declaration.
+    function findSubgraphLineNumber(source, id) {
+        const lines = source.split(/\r?\n/);
+        const startRe = new RegExp(`^\\s*subgraph\\s+${escapeRegExp(id)}(\\b|\\[)`);
+        const idx = lines.findIndex(l => startRe.test(l));
+        return idx < 0 ? null : idx + 1;
+    }
+
     // ----- Connection dragging (the "noodle") -----
 
     function onNodePointerDown(event, id) {
@@ -884,6 +991,13 @@ window.mermaidVariableEditor = (() => {
 
         event.preventDefault();
         event.stopPropagation();
+
+        // While selecting nodes for a new subgraph, clicking a node toggles its
+        // membership instead of starting a connection or painting.
+        if (subgraphSelectActive) {
+            toggleSubgraphNode(id);
+            return;
+        }
 
         // If a paint color is armed, clicking a node fills it instead of connecting.
         // The color stays armed so you can keep painting node after node until you
@@ -919,6 +1033,7 @@ window.mermaidVariableEditor = (() => {
         const over = target ? target.closest(".node-overlay") : null;
         nodeOverlays.forEach(o => o.el.classList.toggle("connect-target", over === o.el && o.id !== connect.fromId));
 
+        updateEdgePan(event);
         updateNoodle();
     }
 
@@ -937,6 +1052,7 @@ window.mermaidVariableEditor = (() => {
         connect.active = false;
         connect.fromId = "";
         nodeOverlays.forEach(o => o.el.classList.remove("connect-target"));
+        stopEdgePan();
         const svg = document.getElementById("noodleSvg");
         if (svg) {
             svg.style.display = "none";
@@ -948,6 +1064,66 @@ window.mermaidVariableEditor = (() => {
         } else if (fromId && !toId && movedFar) {
             // Dropped in empty space: prompt for a node type + name, then connect.
             promptNewNode(fromId);
+        }
+    }
+
+    // ----- Auto-pan when dragging a connection near the preview's edge -----
+    // Lets you drag a connection out to a node that's currently off-screen: as the
+    // pointer nears any border of the preview viewport while connecting, the view pans
+    // continuously toward that border until the pointer moves away or the drag ends.
+    const EDGE_PAN_MARGIN = 48;
+    const EDGE_PAN_SPEED = 14;
+    let edgePanRAF = null;
+    let edgePanVX = 0;
+    let edgePanVY = 0;
+
+    function updateEdgePan(event) {
+        const viewport = getViewport();
+        if (!viewport) {
+            return;
+        }
+
+        const r = viewport.getBoundingClientRect();
+        const x = event.clientX - r.left;
+        const y = event.clientY - r.top;
+
+        edgePanVX = 0;
+        edgePanVY = 0;
+        if (x < EDGE_PAN_MARGIN) {
+            edgePanVX = EDGE_PAN_SPEED * (1 - Math.max(0, x) / EDGE_PAN_MARGIN);
+        } else if (x > r.width - EDGE_PAN_MARGIN) {
+            edgePanVX = -EDGE_PAN_SPEED * (1 - Math.max(0, r.width - x) / EDGE_PAN_MARGIN);
+        }
+        if (y < EDGE_PAN_MARGIN) {
+            edgePanVY = EDGE_PAN_SPEED * (1 - Math.max(0, y) / EDGE_PAN_MARGIN);
+        } else if (y > r.height - EDGE_PAN_MARGIN) {
+            edgePanVY = -EDGE_PAN_SPEED * (1 - Math.max(0, r.height - y) / EDGE_PAN_MARGIN);
+        }
+
+        if ((edgePanVX || edgePanVY) && !edgePanRAF) {
+            edgePanRAF = requestAnimationFrame(edgePanStep);
+        }
+    }
+
+    function edgePanStep() {
+        edgePanRAF = null;
+        if (!connect.active || (!edgePanVX && !edgePanVY)) {
+            return;
+        }
+
+        viewState.x += edgePanVX;
+        viewState.y += edgePanVY;
+        applyTransform();
+        updateNoodle();
+        edgePanRAF = requestAnimationFrame(edgePanStep);
+    }
+
+    function stopEdgePan() {
+        edgePanVX = 0;
+        edgePanVY = 0;
+        if (edgePanRAF) {
+            cancelAnimationFrame(edgePanRAF);
+            edgePanRAF = null;
         }
     }
 
@@ -1176,6 +1352,22 @@ window.mermaidVariableEditor = (() => {
         return addEdge(lines.join("\n"), fromId, id);
     }
 
+    // Append a new node of the chosen type with no connection to any other node.
+    function createStandaloneNode(source, type, name) {
+        const id = nextNodeId(source, type.prefix);
+        const safeName = (name || type.label).replace(/"/g, "'").trim();
+        const nodeLine = `${id}${type.open}${safeName}${type.close}`;
+
+        const lines = source.split(/\r?\n/);
+        let idx = lines.findIndex(l => /^\s*(classDef|class|style|linkStyle)\b/.test(l));
+        if (idx < 0) {
+            idx = lines.length;
+        }
+        lines.splice(idx, 0, nodeLine);
+
+        return lines.join("\n");
+    }
+
     function closeNodeModal() {
         if (activeNodeModal) {
             activeNodeModal.remove();
@@ -1183,6 +1375,9 @@ window.mermaidVariableEditor = (() => {
         }
     }
 
+    // Opens the node-type/name modal. When fromId is set, the new node is connected to
+    // it (dropped-into-empty-space flow); when it's null/empty, the node is standalone
+    // (toolbar "+ Node" button).
     function promptNewNode(fromId) {
         closeNodeModal();
 
@@ -1197,7 +1392,7 @@ window.mermaidVariableEditor = (() => {
 
         const title = document.createElement("div");
         title.className = "node-modal-title";
-        title.textContent = "Create connected node";
+        title.textContent = fromId ? "Create connected node" : "Create node";
         modal.appendChild(title);
 
         const typeWrap = document.createElement("div");
@@ -1262,7 +1457,11 @@ window.mermaidVariableEditor = (() => {
         function confirm() {
             const name = nameInput.value;
             closeNodeModal();
-            applySource(createConnectedNode(currentSource, fromId, selected, name));
+            if (fromId) {
+                applySource(createConnectedNode(currentSource, fromId, selected, name));
+            } else {
+                applySource(createStandaloneNode(currentSource, selected, name));
+            }
         }
 
         cancelBtn.addEventListener("click", closeNodeModal);
@@ -1283,11 +1482,258 @@ window.mermaidVariableEditor = (() => {
         });
     }
 
+    // Toolbar entry point for adding an unconnected node.
+    function promptStandaloneNode() {
+        promptNewNode(null);
+    }
+
     // Tell the editor which app mode is active so the create-node prompt offers the
     // right node types (Data Flow types in "dataflow" mode, generic types otherwise).
     function setMode(mode) {
         currentMode = mode === "dataflow" ? "dataflow" : "standard";
         return currentMode;
+    }
+
+    // ----- Create-subgraph selection mode -----
+    // "+ Subgraph" arms a mode where clicking nodes in the preview toggles their
+    // membership (instead of starting a connection or painting); a floating bar lets
+    // the user confirm (opening a name prompt) or cancel.
+    let subgraphSelectActive = false;
+    const subgraphSelection = new Set();
+
+    function startSubgraphSelection() {
+        if (subgraphSelectActive) {
+            return;
+        }
+
+        const viewport = getViewport();
+        if (!viewport) {
+            return;
+        }
+
+        subgraphSelectActive = true;
+        subgraphSelection.clear();
+        nodeOverlays.forEach(o => o.el.classList.remove("subgraph-selected"));
+
+        const layer = document.getElementById("interactionLayer");
+        if (layer) {
+            layer.classList.add("subgraph-selecting");
+        }
+
+        const bar = document.createElement("div");
+        bar.id = "subgraphSelectBar";
+        bar.className = "subgraph-select-bar";
+
+        const info = document.createElement("span");
+        info.className = "subgraph-select-info";
+        bar.appendChild(info);
+
+        const createBtn = document.createElement("button");
+        createBtn.type = "button";
+        createBtn.className = "subgraph-select-create";
+        createBtn.textContent = "Create subgraph";
+        createBtn.addEventListener("click", finishSubgraphSelection);
+        bar.appendChild(createBtn);
+
+        const cancelBtn = document.createElement("button");
+        cancelBtn.type = "button";
+        cancelBtn.className = "subgraph-select-cancel";
+        cancelBtn.textContent = "Cancel";
+        cancelBtn.addEventListener("click", cancelSubgraphSelection);
+        bar.appendChild(cancelBtn);
+
+        // Mounted inside #interactionLayer (not the viewport directly) so the viewport's
+        // own pointerdown handler recognizes clicks here as interaction-layer clicks and
+        // skips arming a pan drag, letting the bar's buttons receive their click events.
+        (layer || viewport).appendChild(bar);
+        updateSubgraphBar();
+    }
+
+    function toggleSubgraphNode(id) {
+        const entry = nodeOverlays.find(o => o.id === id);
+        if (subgraphSelection.has(id)) {
+            subgraphSelection.delete(id);
+            if (entry) {
+                entry.el.classList.remove("subgraph-selected");
+            }
+        } else {
+            subgraphSelection.add(id);
+            if (entry) {
+                entry.el.classList.add("subgraph-selected");
+            }
+        }
+        updateSubgraphBar();
+    }
+
+    function updateSubgraphBar() {
+        const bar = document.getElementById("subgraphSelectBar");
+        if (!bar) {
+            return;
+        }
+        const n = subgraphSelection.size;
+        const info = bar.querySelector(".subgraph-select-info");
+        if (info) {
+            info.textContent = n === 0
+                ? "Click nodes to add them to the subgraph"
+                : `${n} node${n === 1 ? "" : "s"} selected`;
+        }
+        const createBtn = bar.querySelector(".subgraph-select-create");
+        if (createBtn) {
+            createBtn.disabled = n === 0;
+        }
+    }
+
+    function cancelSubgraphSelection() {
+        subgraphSelectActive = false;
+        subgraphSelection.clear();
+        nodeOverlays.forEach(o => o.el.classList.remove("subgraph-selected"));
+
+        const layer = document.getElementById("interactionLayer");
+        if (layer) {
+            layer.classList.remove("subgraph-selecting");
+        }
+
+        const bar = document.getElementById("subgraphSelectBar");
+        if (bar) {
+            bar.remove();
+        }
+    }
+
+    function finishSubgraphSelection() {
+        if (subgraphSelection.size === 0) {
+            return;
+        }
+        promptSubgraphName(Array.from(subgraphSelection));
+    }
+
+    // Pick a fresh "SGn" subgraph id.
+    function nextSubgraphId(source) {
+        let max = 0;
+        const re = /\bsubgraph\s+SG(\d+)\b/g;
+        let m;
+        while ((m = re.exec(source)) !== null) {
+            const n = parseInt(m[1], 10);
+            if (n > max) {
+                max = n;
+            }
+        }
+        return `SG${max + 1}`;
+    }
+
+    // Appends a `subgraph ...` / `end` block referencing the selected node ids. Nodes
+    // already defined elsewhere in the source only need to be referenced by id inside
+    // the block for Mermaid to render them grouped inside the subgraph.
+    function createSubgraph(source, ids, name) {
+        const id = nextSubgraphId(source);
+        const label = (name || id).replace(/[\[\]]/g, "").trim() || id;
+
+        const lines = source.split(/\r?\n/);
+        let idx = lines.findIndex(l => /^\s*(classDef|class|style|linkStyle)\b/.test(l));
+        if (idx < 0) {
+            idx = lines.length;
+        }
+        const block = [`subgraph ${id}[${label}]`, ...ids.map(i => `    ${i}`), "end"];
+        lines.splice(idx, 0, ...block);
+        return lines.join("\n");
+    }
+
+    // Removes the `subgraph <id>[...] ... end` wrapper for the given id, ungrouping its
+    // contents rather than deleting the nodes themselves. Nesting is tracked by depth so
+    // the matching "end" is found even when other subgraphs are nested inside.
+    function removeSubgraph(source, id) {
+        const lines = source.split(/\r?\n/);
+        const startRe = new RegExp(`^\\s*subgraph\\s+${escapeRegExp(id)}(\\b|\\[)`);
+        const startIdx = lines.findIndex(l => startRe.test(l));
+        if (startIdx < 0) {
+            return source;
+        }
+
+        let depth = 1;
+        let endIdx = -1;
+        for (let i = startIdx + 1; i < lines.length; i++) {
+            const trimmed = lines[i].trim();
+            if (/^subgraph\b/.test(trimmed)) {
+                depth++;
+            } else if (/^end$/.test(trimmed)) {
+                depth--;
+                if (depth === 0) {
+                    endIdx = i;
+                    break;
+                }
+            }
+        }
+        if (endIdx < 0) {
+            return source;
+        }
+
+        // Best-effort de-indent (one level) so leftover node lines don't look nested.
+        const inner = lines.slice(startIdx + 1, endIdx).map(l => l.replace(/^ {1,4}|^\t/, ""));
+        return [...lines.slice(0, startIdx), ...inner, ...lines.slice(endIdx + 1)].join("\n");
+    }
+
+    // Small name-prompt modal, reusing the create-node modal's styling/structure.
+    function promptSubgraphName(ids) {
+        closeNodeModal();
+
+        const backdrop = document.createElement("div");
+        backdrop.className = "node-modal-backdrop";
+
+        const modal = document.createElement("div");
+        modal.className = "node-modal";
+
+        const title = document.createElement("div");
+        title.className = "node-modal-title";
+        title.textContent = `Create subgraph (${ids.length} node${ids.length === 1 ? "" : "s"})`;
+        modal.appendChild(title);
+
+        const nameInput = document.createElement("input");
+        nameInput.type = "text";
+        nameInput.className = "node-modal-name";
+        nameInput.placeholder = "Subgraph name";
+        modal.appendChild(nameInput);
+
+        const actions = document.createElement("div");
+        actions.className = "node-modal-actions";
+        const cancelBtn = document.createElement("button");
+        cancelBtn.type = "button";
+        cancelBtn.className = "node-modal-cancel";
+        cancelBtn.textContent = "Cancel";
+        const createBtn = document.createElement("button");
+        createBtn.type = "button";
+        createBtn.className = "node-modal-create";
+        createBtn.textContent = "Create";
+        actions.appendChild(cancelBtn);
+        actions.appendChild(createBtn);
+        modal.appendChild(actions);
+
+        backdrop.appendChild(modal);
+        (document.fullscreenElement || document.body).appendChild(backdrop);
+        activeNodeModal = backdrop;
+        nameInput.focus();
+
+        function confirm() {
+            const name = nameInput.value;
+            closeNodeModal();
+            applySource(createSubgraph(currentSource, ids, name));
+            cancelSubgraphSelection();
+        }
+
+        cancelBtn.addEventListener("click", closeNodeModal);
+        createBtn.addEventListener("click", confirm);
+        backdrop.addEventListener("pointerdown", e => {
+            if (e.target === backdrop) {
+                closeNodeModal();
+            }
+        });
+        nameInput.addEventListener("keydown", e => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                confirm();
+            } else if (e.key === "Escape") {
+                e.preventDefault();
+                closeNodeModal();
+            }
+        });
     }
 
     // ----- Inline node text editing -----
@@ -1661,11 +2107,79 @@ window.mermaidVariableEditor = (() => {
 
     let sourceHighlightScrollBound = false;
 
+    // The source line currently highlighted from hovering a preview element (1-based),
+    // or null when nothing is highlighted.
+    let highlightedSourceLine = null;
+
+    function ensureSourceLineHighlightEl() {
+        let el = document.getElementById("mermaidSourceLineHighlight");
+        if (!el) {
+            const wrap = document.querySelector(".source-wrap");
+            if (!wrap) {
+                return null;
+            }
+            el = document.createElement("div");
+            el.id = "mermaidSourceLineHighlight";
+            wrap.insertBefore(el, wrap.firstChild);
+        }
+        return el;
+    }
+
+    // Repositions the highlight bar over `highlightedSourceLine`, accounting for the
+    // textarea's current scroll offset. Called on hover and on every textarea scroll.
+    function positionSourceLineHighlight() {
+        if (highlightedSourceLine == null) {
+            return;
+        }
+        const el = ensureSourceLineHighlightEl();
+        const textarea = document.getElementById("mermaidSourceInput");
+        if (!el || !textarea) {
+            return;
+        }
+        const style = window.getComputedStyle(textarea);
+        const lineHeight = parseFloat(style.lineHeight) || 20;
+        const paddingTop = parseFloat(style.paddingTop) || 0;
+        const top = paddingTop + (highlightedSourceLine - 1) * lineHeight - textarea.scrollTop;
+        el.style.height = `${lineHeight}px`;
+        el.style.top = `${top}px`;
+    }
+
+    // Highlights the given 1-based source line (e.g. while hovering a node/edge/subgraph
+    // in the preview). Pass a falsy value to clear it.
+    function highlightSourceLine(lineNumber) {
+        const el = ensureSourceLineHighlightEl();
+        if (!el) {
+            return;
+        }
+        highlightedSourceLine = lineNumber || null;
+        const gutter = document.getElementById("mermaidSourceGutter");
+        if (gutter) {
+            gutter.querySelectorAll(".gutter-line.active").forEach(g => g.classList.remove("active"));
+            if (highlightedSourceLine) {
+                const active = gutter.querySelector(`.gutter-line[data-line="${highlightedSourceLine}"]`);
+                if (active) {
+                    active.classList.add("active");
+                }
+            }
+        }
+        if (!highlightedSourceLine) {
+            el.style.display = "none";
+            return;
+        }
+        el.style.display = "block";
+        positionSourceLineHighlight();
+    }
+
+    function clearSourceLineHighlight() {
+        highlightSourceLine(null);
+    }
+
     // Rebuilds the #mermaidSourceHighlight overlay so every known node id is wrapped in
     // its .var-color-N span, matching the color used for that id's badge in the preview.
     // Called on every render (i.e. every keystroke), so it always mirrors the textarea.
     function updateSourceHighlight(source) {
         const pre = document.getElementById("mermaidSourceHighlight");
+        const gutter = document.getElementById("mermaidSourceGutter");
         const textarea = document.getElementById("mermaidSourceInput");
         if (!pre) {
             return;
@@ -1675,8 +2189,21 @@ window.mermaidVariableEditor = (() => {
             textarea.addEventListener("scroll", () => {
                 pre.scrollTop = textarea.scrollTop;
                 pre.scrollLeft = textarea.scrollLeft;
+                if (gutter) {
+                    gutter.scrollTop = textarea.scrollTop;
+                }
+                positionSourceLineHighlight();
             });
             sourceHighlightScrollBound = true;
+        }
+
+        if (gutter) {
+            const lineCount = source.split(/\r?\n/).length;
+            let html = "";
+            for (let i = 1; i <= lineCount; i++) {
+                html += `<div class="gutter-line" data-line="${i}">${i}</div>`;
+            }
+            gutter.innerHTML = html;
         }
 
         const ids = extractNodeIds(source);
@@ -1704,7 +2231,8 @@ window.mermaidVariableEditor = (() => {
     function addNodeIdsToLabels(source) {
         const lines = source.split(/\r?\n/);
 
-        return lines.map(line => {
+        return lines.map((line, lineIndex) => {
+            const lineNumber = lineIndex + 1;
             const trimmed = line.trim();
 
             // Skip comments, directives, classes, styles, subgraphs, and non-node config lines.
@@ -1723,14 +2251,36 @@ window.mermaidVariableEditor = (() => {
             return line.replace(new RegExp(`(^|[^A-Za-z0-9_])([A-Za-z_][A-Za-z0-9_-]*)(${NODE_OPEN_RE})([^\\]\\}\\)\\n]*?)(${NODE_CLOSE_RE})`, "g"),
                 (match, prefix, id, open, label, close) => {
                     const cleanLabel = label.trim();
-                    const hasQuotedLabel = cleanLabel.includes('"') || cleanLabel.includes("'");
-                    if (!cleanLabel || hasQuotedLabel || cleanLabel.startsWith(id + ":") || cleanLabel.includes(`${id}<br/>`)) {
+                    if (!cleanLabel || cleanLabel.startsWith(id + ":") || cleanLabel.includes(`${id}<br/>`)) {
                         return match;
                     }
+
+                    // Data Flow nodes (and any manually quoted label) capture the surrounding
+                    // quotes as part of the label text (the shape regex only matches brackets,
+                    // not quotes). Previously any quote anywhere skipped the id badge entirely,
+                    // so quoted labels (the common case) never got one. Since securityLevel is
+                    // "loose", HTML inside a quoted Mermaid label still renders, so insert the
+                    // badge just inside the quotes instead of bailing out.
+                    const isFullyQuoted = cleanLabel.length >= 2 && cleanLabel.startsWith('"') && cleanLabel.endsWith('"');
+                    if (isFullyQuoted) {
+                        const inner = cleanLabel.slice(1, -1);
+                        if (inner.startsWith(id + ":") || inner.includes(`${id}<br/>`)) {
+                            return match;
+                        }
+                        return `${prefix}${id}${open}"<code class=${varColorClass(id)}>${id} L${lineNumber}:</code> ${inner}"${close}`;
+                    }
+
+                    // A quote appears somewhere but the label isn't cleanly wrapped in one pair
+                    // (ambiguous/mixed content) -- leave it untouched rather than risk corrupting it.
+                    if (cleanLabel.includes('"') || cleanLabel.includes("'")) {
+                        return match;
+                    }
+
                     // Bold + monospace + a per-id color (no quoted attributes, so it can't
                     // confuse Mermaid's own text parsing) makes the id prefix visually pop
-                    // out from the label, in the same color used for this id in the source.
-                    return `${prefix}${id}${open}<code class=${varColorClass(id)}>${id}:</code> ${label}${close}`;
+                    // out from the label, in the same color used for this id in the source. The
+                    // line number lets you find that node's definition in the source quickly.
+                    return `${prefix}${id}${open}<code class=${varColorClass(id)}>${id} L${lineNumber}:</code> ${label}${close}`;
                 });
         }).join("\n");
     }
@@ -1827,5 +2377,5 @@ window.mermaidVariableEditor = (() => {
         undoRedoRef = null;
     }
 
-    return { render, zoomIn, zoomOut, resetZoom, clearErrors, copyConsoleOutput, setControlsVisible, toggleControls, setColorsVisible, setTheme, copyToClipboard, setMode, toggleFullscreen, initResizer, updateViewportLayout, registerUndoRedo, unregisterUndoRedo };
+    return { render, zoomIn, zoomOut, resetZoom, clearErrors, copyConsoleOutput, setControlsVisible, toggleControls, setColorsVisible, setTheme, copyToClipboard, setMode, toggleFullscreen, initResizer, updateViewportLayout, registerUndoRedo, unregisterUndoRedo, promptStandaloneNode, startSubgraphSelection };
 })();

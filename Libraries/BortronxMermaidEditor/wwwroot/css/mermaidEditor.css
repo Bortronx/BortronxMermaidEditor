@@ -441,7 +441,6 @@ body.grid-resizing {
     border-bottom: 1px solid var(--header-border);
     font-weight: 700;
     display: flex;
-    justify-content: space-between;
     gap: 12px;
     flex-shrink: 0;
     min-width: 0;
@@ -605,14 +604,60 @@ body.grid-resizing {
     flex: 1 1 auto;
     min-height: 0;
     background: var(--field-bg);
+    --gutter-width: 44px;
+}
+
+/* Highlights the source line matching whatever's hovered in the preview (node, edge,
+   subgraph). Covers the text/textarea region only (the gutter's own number is
+   highlighted separately via .gutter-line.active, since the gutter has an opaque
+   background that would otherwise hide this bar). */
+#mermaidSourceLineHighlight {
+    position: absolute;
+    left: var(--gutter-width);
+    right: 0;
+    background: rgba(255, 196, 0, 0.22);
+    pointer-events: none;
+    z-index: 0;
+    display: none;
+}
+
+#mermaidSourceGutter {
+    position: absolute;
+    inset: 0;
+    right: auto;
+    width: var(--gutter-width);
+    margin: 0;
+    padding: 16px 8px 16px 0;
+    box-sizing: border-box;
+    font-family: Consolas, Monaco, monospace;
+    font-size: 14px;
+    line-height: 1.45;
+    text-align: right;
+    color: var(--text-muted, #888);
+    background: var(--panel-bg);
+    border-right: 1px solid var(--panel-border);
+    overflow: hidden;
+    pointer-events: none;
+    user-select: none;
+    white-space: pre;
+    z-index: 1;
+}
+
+.gutter-line.active {
+    color: var(--field-text);
+    font-weight: 700;
+    background: rgba(255, 196, 0, 0.35);
 }
 
 .source-wrap #mermaidSourceHighlight,
 .source-wrap #mermaidSourceInput {
     position: absolute;
-    inset: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: var(--gutter-width);
     margin: 0;
-    width: 100%;
+    width: auto;
     height: 100%;
     padding: 16px;
     box-sizing: border-box;
@@ -620,8 +665,9 @@ body.grid-resizing {
     font-family: Consolas, Monaco, monospace;
     font-size: 14px;
     line-height: 1.45;
-    white-space: pre-wrap;
-    overflow-wrap: break-word;
+    /* Wrapping is disabled (rather than pre-wrap) so each source line stays exactly one
+       visual line -- required for the line-number gutter to stay aligned with the text. */
+    white-space: pre;
     overflow: auto;
 }
 
@@ -630,11 +676,11 @@ body.grid-resizing {
     background: transparent;
     pointer-events: none;
     user-select: none;
-    z-index: 1;
+    z-index: 2;
 }
 
 #mermaidSourceInput {
-    z-index: 2;
+    z-index: 3;
     background: transparent;
     color: transparent;
     caret-color: var(--field-text);
@@ -720,7 +766,8 @@ body.grid-resizing {
    for the arrows/nodes underneath, so the paint bucket can reach the edge hit paths. */
 #interactionLayer.painting .node-delete,
 #interactionLayer.painting .edge-delete,
-#interactionLayer.painting .edge-label-btn {
+#interactionLayer.painting .edge-label-btn,
+#interactionLayer.painting .subgraph-delete {
     pointer-events: none;
 }
 
@@ -759,6 +806,108 @@ body.grid-resizing {
     outline: 2px solid #16a34a;
     outline-offset: 2px;
     background: rgba(22, 163, 74, 0.12);
+}
+
+.node-overlay.subgraph-selected {
+    outline: 2px solid #7c3aed;
+    outline-offset: 2px;
+    background: rgba(124, 58, 237, 0.15);
+}
+
+#interactionLayer.subgraph-selecting .node-overlay {
+    cursor: pointer;
+}
+
+/* While selecting nodes for a subgraph, delete/edge controls must not intercept clicks. */
+#interactionLayer.subgraph-selecting .node-delete,
+#interactionLayer.subgraph-selecting .edge-delete,
+#interactionLayer.subgraph-selecting .edge-label-btn,
+#interactionLayer.subgraph-selecting .subgraph-delete {
+    pointer-events: none;
+}
+
+/* Small "x" badge pinned to a subgraph's top-right corner to remove it (ungrouping its
+   nodes rather than deleting them). Faint until hovering the preview, like edge-delete. */
+.subgraph-delete {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    box-sizing: border-box;
+    line-height: 1;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 13px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    border: 1px solid #b91c1c;
+    background: #fff1f2;
+    color: #991b1b;
+    pointer-events: auto;
+    opacity: 0.25;
+    transition: opacity 0.15s ease;
+    z-index: 5;
+}
+
+.preview-wrap:hover .subgraph-delete {
+    opacity: 0.85;
+}
+
+.subgraph-delete:hover {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.15);
+}
+
+.subgraph-select-bar {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 6;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 999px;
+    padding: 6px 14px;
+    box-shadow: 0 6px 18px var(--panel-shadow);
+    pointer-events: auto;
+}
+
+.subgraph-select-info {
+    font-size: 13px;
+    color: var(--text);
+    white-space: nowrap;
+}
+
+.subgraph-select-create,
+.subgraph-select-cancel {
+    border-radius: 999px;
+    padding: 5px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.subgraph-select-create {
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: #ffffff;
+}
+
+.subgraph-select-create:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.subgraph-select-cancel {
+    border: 1px solid var(--btn-border);
+    background: var(--btn-bg);
+    color: var(--btn-text);
 }
 
 .mermaid-editor .node-delete {
