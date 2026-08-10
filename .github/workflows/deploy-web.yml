@@ -1,0 +1,44 @@
+name: Deploy Web (Firebase Hosting)
+
+# Builds the Blazor WASM web app fresh and deploys it to Firebase Hosting whenever
+# main changes. Firebase/public is gitignored (generated output only), so this
+# workflow is the source of truth for what gets deployed.
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          dotnet-quality: 'preview'
+
+      - name: Publish web app
+        run: dotnet publish src/BlazorMermaidEditor.csproj -c Release -o publish-web
+
+      - name: Stage published output into Firebase/public
+        run: |
+          rm -rf Firebase/public
+          mkdir -p Firebase/public
+          cp -r publish-web/wwwroot/. Firebase/public/
+
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: bortronxmermaid
+          entryPoint: Firebase
+          channelId: live

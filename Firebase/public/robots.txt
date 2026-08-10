@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://mermaid.bortronx.com/sitemap.xml
