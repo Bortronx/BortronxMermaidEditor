@@ -2111,6 +2111,15 @@ window.mermaidVariableEditor = (() => {
     // or null when nothing is highlighted.
     let highlightedSourceLine = null;
 
+    // When true, hovering the preview still highlights the matching line but leaves the
+    // source editor's scroll position alone (toggled by the "Lock Scroll" button).
+    let sourceScrollLockActive = false;
+
+    function setSourceScrollLock(active) {
+        sourceScrollLockActive = !!active;
+        return sourceScrollLockActive;
+    }
+
     function ensureSourceLineHighlightEl() {
         let el = document.getElementById("mermaidSourceLineHighlight");
         if (!el) {
@@ -2167,11 +2176,49 @@ window.mermaidVariableEditor = (() => {
             return;
         }
         el.style.display = "block";
+        if (!sourceScrollLockActive) {
+            scrollSourceLineIntoView(highlightedSourceLine);
+        }
         positionSourceLineHighlight();
     }
 
     function clearSourceLineHighlight() {
         highlightSourceLine(null);
+    }
+
+    // Scrolls the textarea (and its gutter/highlight overlay, kept in lockstep) just
+    // enough to bring the given 1-based line into view, if it isn't already.
+    function scrollSourceLineIntoView(lineNumber) {
+        const textarea = document.getElementById("mermaidSourceInput");
+        if (!textarea) {
+            return;
+        }
+        const pre = document.getElementById("mermaidSourceHighlight");
+        const gutter = document.getElementById("mermaidSourceGutter");
+
+        const style = window.getComputedStyle(textarea);
+        const lineHeight = parseFloat(style.lineHeight) || 20;
+        const paddingTop = parseFloat(style.paddingTop) || 0;
+        const lineTop = paddingTop + (lineNumber - 1) * lineHeight;
+        const lineBottom = lineTop + lineHeight;
+        const margin = lineHeight;
+
+        let target = null;
+        if (lineTop - margin < textarea.scrollTop) {
+            target = Math.max(0, lineTop - margin);
+        } else if (lineBottom + margin > textarea.scrollTop + textarea.clientHeight) {
+            target = lineBottom + margin - textarea.clientHeight;
+        }
+
+        if (target != null) {
+            textarea.scrollTop = target;
+            if (pre) {
+                pre.scrollTop = target;
+            }
+            if (gutter) {
+                gutter.scrollTop = target;
+            }
+        }
     }
 
     // Rebuilds the #mermaidSourceHighlight overlay so every known node id is wrapped in
@@ -2377,5 +2424,5 @@ window.mermaidVariableEditor = (() => {
         undoRedoRef = null;
     }
 
-    return { render, zoomIn, zoomOut, resetZoom, clearErrors, copyConsoleOutput, setControlsVisible, toggleControls, setColorsVisible, setTheme, copyToClipboard, setMode, toggleFullscreen, initResizer, updateViewportLayout, registerUndoRedo, unregisterUndoRedo, promptStandaloneNode, startSubgraphSelection };
+    return { render, zoomIn, zoomOut, resetZoom, clearErrors, copyConsoleOutput, setControlsVisible, toggleControls, setColorsVisible, setTheme, copyToClipboard, setMode, toggleFullscreen, initResizer, updateViewportLayout, registerUndoRedo, unregisterUndoRedo, promptStandaloneNode, startSubgraphSelection, setSourceScrollLock };
 })();

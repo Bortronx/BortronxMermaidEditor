@@ -84,7 +84,10 @@
         <section class="panel">
             <div class="panel-header">
                 <span>Mermaid source</span>
-                <span class="small-note">Your code stays unchanged</span>
+                <div class="preview-actions">
+                    <span class="small-note">Your code stays unchanged</span>
+                    <button type="button" class="@(ScrollLockActive ? "scroll-lock-btn active" : "scroll-lock-btn")" @onclick="ToggleScrollLock" title="@(ScrollLockActive ? "Scroll position is locked -- click to let hovering the preview auto-scroll to the matching line" : "Click to lock the source editor's scroll position, so hovering the preview won't auto-scroll it")">@(ScrollLockActive ? "Scroll Locked" : "Lock Scroll")</button>
+                </div>
             </div>
             <div class="source-wrap">
                 <pre id="mermaidSourceGutter" aria-hidden="true"></pre>
@@ -159,6 +162,7 @@
     private bool ControlsVisible { get; set; } = true;
     private bool ColorsVisible { get; set; } = true;
     private bool IsDark { get; set; }
+    private bool ScrollLockActive { get; set; }
 
     // The console starts collapsed to a single bar (title + copy/clear buttons) so the
     // source and preview panels always fill the viewport without scrolling; expanding it
@@ -404,6 +408,12 @@ flowchart TD
     private async Task StartSubgraphSelection()
     {
         await JS.InvokeVoidAsync("mermaidVariableEditor.startSubgraphSelection");
+    }
+
+    private async Task ToggleScrollLock()
+    {
+        ScrollLockActive = !ScrollLockActive;
+        await JS.InvokeVoidAsync("mermaidVariableEditor.setSourceScrollLock", ScrollLockActive);
     }
 
     private async Task ToggleTheme()

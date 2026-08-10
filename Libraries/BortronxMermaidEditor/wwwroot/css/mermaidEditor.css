@@ -477,6 +477,12 @@ body.grid-resizing {
     line-height: 0;
 }
 
+.scroll-lock-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #ffffff;
+}
+
 :where(.mermaid-editor) textarea {
     width: 100%;
     border: 0;
