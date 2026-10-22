@@ -11,6 +11,10 @@
     <meta name="author" content="Bortronx" />
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="https://mermaid.bortronx.com/" />
+    <link rel="stylesheet" href="_content/BortronxMermaidEditor/css/mermaidEditor.css"
+          data-mermaid-editor="_content/BortronxMermaidEditor/css/mermaidEditor.css" />
+    <link rel="stylesheet" href="css/site.css" />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
 
     <!-- Open Graph (Facebook, LinkedIn, Discord, Slack) -->
     <meta property="og:type" content="website" />
@@ -56,15 +60,84 @@
 <body>
     <div id="app">
         <noscript>
-            <h1>Bortronx Mermaid Editor</h1>
             <p>
-                A free online Mermaid diagram editor with live preview, variable toggling,
-                data flow diagram mode, and dark mode. This application requires JavaScript
-                and WebAssembly to run. Please enable JavaScript in your browser to use the editor.
+                Enable JavaScript and WebAssembly to use the interactive editor.
+                You can still read the Mermaid guide and examples below.
             </p>
         </noscript>
-        Loading...
+        <p class="app-loading" role="status">Loading the Mermaid diagram editor...</p>
     </div>
+    <section class="site-guide" aria-labelledby="guide-title">
+        <h2 id="guide-title">Free online Mermaid diagram editor</h2>
+        <p>
+            Bortronx Mermaid Editor turns text into diagrams with a live preview.
+            Build flowcharts, document software workflows, or describe how data moves
+            between people, processes, and data stores. Use the editor in your browser
+            without creating an account.
+        </p>
+        <nav aria-label="Mermaid editor guide">
+            <a href="#app">Open the editor</a>
+            <a href="#getting-started">How to use it</a>
+            <a href="#diagram-examples">Mermaid examples</a>
+            <a href="#sharing-diagrams">Share a diagram</a>
+        </nav>
+
+        <h3 id="getting-started">How to create a Mermaid diagram</h3>
+        <ol>
+            <li>Type or paste Mermaid syntax into the <strong>Mermaid source</strong> field.</li>
+            <li>Check the live preview. If the syntax is invalid, open the Console for error details.</li>
+            <li>Zoom or pan to explore the diagram. Use preview controls to add nodes, connect them, edit labels, or choose colors.</li>
+            <li>Use Undo and Redo to revisit edits, or switch between light and dark themes.</li>
+        </ol>
+        <p>
+            Choose <strong>Data Flow Diagram Mode</strong> for entity, process,
+            data-store, and labeled-flow helpers. A starter template and editable
+            legend help explain the meaning of your diagram.
+        </p>
+
+        <h3 id="diagram-examples">Mermaid flowchart examples</h3>
+        <p>Paste this example into the editor to draw an authorized administrator:</p>
+        <pre><code>flowchart TD
+    Admin["Authorized administrator"]</code></pre>
+        <p>This example shows a decision and two possible paths:</p>
+        <pre><code>flowchart TD
+    Start["Receive request"] --&gt; Approved{"Approved?"}
+    Approved --&gt;|Yes| Process["Process request"]
+    Approved --&gt;|No| Reject["Reject request"]</code></pre>
+        <p>Use a subgraph to group related steps while keeping each node individually editable:</p>
+        <pre><code>flowchart LR
+    User["User"] --&gt; App
+    subgraph System["Application"]
+        App["Process request"] --&gt; Store[("Data store")]
+    end</code></pre>
+
+        <h3 id="sharing-diagrams">Share a diagram with a link</h3>
+        <p>
+            Click <strong>Copy diagram link</strong> to create a self-contained snapshot.
+            Opening it restores the exact Mermaid source, including comments and whitespace,
+            and the Standard or Data Flow editor mode. Compressed, URL-safe encoding keeps
+            larger diagrams shorter without changing their source. Later edits do not
+            change an already copied link.
+        </p>
+        <p>
+            Links are not encrypted: anyone with a link can read the diagram.
+            Avoid sharing sensitive information. Very large diagrams can still create
+            URLs that exceed limits in browsers or messaging apps.
+        </p>
+
+        <h3>Does the editor need JavaScript?</h3>
+        <p>
+            The interactive editor uses Blazor WebAssembly and loads Mermaid in your browser.
+            JavaScript and WebAssembly are required for editing and previewing diagrams.
+            This guide remains available without JavaScript.
+        </p>
+        <p>
+            Learn more in the
+            <a href="https://mermaid.js.org/intro/">Mermaid syntax documentation</a>,
+            or view the
+            <a href="https://github.com/Bortronx/BortronxMermaidEditor">source code and offline desktop app</a>.
+        </p>
+    </section>
     <script src="_framework/blazor.webassembly.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";

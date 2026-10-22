@@ -62,6 +62,28 @@ Add a project or package reference to `BortronxMermaidEditor`, then render the c
 <MermaidEditor />
 ```
 
+## Search visibility and performance
+
+The web host serves its introductory guide, usage instructions, and Mermaid examples
+as visible static HTML outside Blazor's `#app` mount. This content is available before
+WebAssembly loads and with JavaScript disabled; the editor remains first on the page.
+Host-specific styling lives in `src/wwwroot/css/site.css` and is not bundled into the
+reusable editor component.
+The web host loads the editor stylesheet in its initial document to avoid displaying
+an unstyled editor while the lazy JavaScript loader starts. Other component hosts
+can still rely on the component's self-loading assets.
+
+The homepage includes a canonical URL, description, social preview metadata, and
+`WebApplication` structured data. `robots.txt` allows crawling and points to
+`https://mermaid.bortronx.com/sitemap.xml`. Diagram fragments are snapshots of the
+same page, not separate pages to add to the sitemap.
+
+Use Google Search Console's `sc-domain:mermaid.bortronx.com` property to monitor
+indexing and the submitted sitemap. Check mobile performance with
+[PageSpeed Insights](https://pagespeed.web.dev/analysis?url=https%3A%2F%2Fmermaid.bortronx.com%2F&form_factor=mobile).
+Lab measurements vary by run; a real-user Core Web Vitals verdict requires enough
+field data. Metadata and sitemap submission do not guarantee rankings.
+
 ## Desktop app (offline)
 
 The editor is also available as a standalone desktop app that runs **fully offline** — it
