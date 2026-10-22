@@ -1,4 +1,5 @@
 @inject IJSRuntime JS
+@inject NavigationManager Navigation
 @implements IAsyncDisposable
 
 <div class="mermaid-editor page @(CurrentMode == AppMode.DataFlow ? "mode-dfd" : "")">
@@ -17,6 +18,7 @@
             </div>
         </div>
         <div class="toolbar">
+            <button type="button" @onclick="CopyDiagramLink">Copy diagram link</button>
             <label class="toggle mode-select">
                 Mode
                 <select @bind="CurrentMode" @bind:after="OnModeChanged">
@@ -39,6 +41,11 @@
             </button>
         </div>
     </div>
+
+    @if (!string.IsNullOrEmpty(ShareMessage))
+    {
+        <p role="status">@ShareMessage</p>
+    }
 
     @if (CurrentMode == AppMode.DataFlow)
     {
@@ -174,6 +181,7 @@
     private readonly List<string> _recentDfdIds = new();
 
     private string CopyLegendLabel { get; set; } = "Copy legend";
+    private string ShareMessage { get; set; } = "";
 
     // The legend definitions section is hidden until toggled from the Data Flow tools.
     private bool ShowLegendPanel { get; set; }
@@ -208,7 +216,69 @@ flowchart TD
 
     protected override void OnInitialized()
     {
+        LoadDiagramLink(Navigation.Uri);
         _committedSource = MermaidSource;
+        Navigation.LocationChanged += OnLocationChanged;
+    }
+
+    private bool LoadDiagramLink(string uri)
+    {
+        try
+        {
+            var diagram = DiagramLink.Decode(new Uri(uri).Fragment);
+            if (diagram is null)
+                return false;
+            MermaidSource = diagram.Source;
+            CurrentMode = diagram.DataFlow ? AppMode.DataFlow : AppMode.Standard;
+            _recentDfdIds.Clear();
+            _legendOrder.Clear();
+            LegendDefinitions = ExtractDiagramLegendText(MermaidSource);
+            ShareMessage = "Shared diagram loaded.";
+            return true;
+        }
+        catch (FormatException ex)
+        {
+            ShareMessage = $"Unable to open diagram link: {ex.Message}";
+            return false;
+        }
+    }
+
+    private async void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        await InvokeAsync(async () =>
+        {
+            if (!LoadDiagramLink(e.Location))
+            {
+                StateHasChanged();
+                return;
+            }
+            FinalizeTypingBurst();
+            _committedSource = MermaidSource;
+            _undoStack.Clear();
+            _redoStack.Clear();
+            if (_editorReady)
+                await RenderDiagram();
+            StateHasChanged();
+        });
+    }
+
+    private bool _editorReady;
+
+    private async Task CopyDiagramLink()
+    {
+        try
+        {
+            var fragment = DiagramLink.Encode(MermaidSource, CurrentMode == AppMode.DataFlow);
+            var uri = new UriBuilder(Navigation.Uri) { Fragment = fragment[1..] }.Uri.AbsoluteUri;
+            var copied = await JS.InvokeAsync<bool>("mermaidVariableEditor.copyToClipboard", uri);
+            ShareMessage = copied
+                ? "Diagram link copied. Anyone with the link can read the diagram."
+                : "Unable to copy the diagram link. Allow clipboard access and try again.";
+        }
+        catch (Exception ex) when (ex is FormatException or JSException)
+        {
+            ShareMessage = $"Unable to copy diagram link: {ex.Message}";
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -220,6 +290,7 @@ flowchart TD
             var loader = await JS.InvokeAsync<IJSObjectReference>(
                 "import", "./_content/BortronxMermaidEditor/js/mermaidEditorLoader.js");
             await loader.InvokeVoidAsync("ensureLoaded");
+            _editorReady = true;
 
             await RenderDiagram();
             await JS.InvokeVoidAsync("mermaidVariableEditor.initResizer");
@@ -343,6 +414,7 @@ flowchart TD
 
     public async ValueTask DisposeAsync()
     {
+        Navigation.LocationChanged -= OnLocationChanged;
         _typingTimer?.Dispose();
         try
         {

@@ -22,6 +22,7 @@ window.mermaidVariableEditor = (() => {
     let currentShowIds = false;
     let interactionBuilt = false;
     let nodeOverlays = []; // { id, el, g }
+    let clusterOverlays = [];
     let edgeButtons = [];  // { from, to, el }
     let edgeLabelButtons = []; // { from, to, el }, positioned in lockstep with edgeButtons
     let subgraphButtons = []; // { id, el, g }, a delete badge pinned to each subgraph's box
@@ -265,6 +266,10 @@ window.mermaidVariableEditor = (() => {
 
         if (!pointerBound) {
             viewport.addEventListener("pointerdown", onPointerDown);
+            viewport.addEventListener("pointermove", updateClusterHighlight);
+            viewport.addEventListener("pointerleave", () => {
+                clusterOverlays.forEach(o => o.el.classList.remove("is-hovered"));
+            });
             window.addEventListener("pointermove", onPointerMove);
             window.addEventListener("pointerup", onPointerUp);
             pointerBound = true;
@@ -667,6 +672,8 @@ window.mermaidVariableEditor = (() => {
 
         nodeOverlays.forEach(o => o.el.remove());
         nodeOverlays = [];
+        clusterOverlays.forEach(o => o.el.remove());
+        clusterOverlays = [];
         edgeButtons.forEach(b => b.el.remove());
         edgeButtons = [];
         edgeLabelButtons.forEach(b => b.el.remove());
@@ -674,8 +681,22 @@ window.mermaidVariableEditor = (() => {
         subgraphButtons.forEach(b => b.el.remove());
         subgraphButtons = [];
 
+        // Containers never capture input: SVG hit testing distinguishes empty
+        // subgraph space from child nodes, labels, edges, and nested subgraphs.
+        const containers = [...document.querySelectorAll("#diagramPreview g.cluster, #diagramPreview g.node")]
+            .filter(g => g.classList.contains("cluster") || g.querySelector("g.node"));
+        containers.forEach(g => {
+            const el = document.createElement("div");
+            el.className = "node-overlay cluster-overlay";
+            layer.appendChild(el);
+            clusterOverlays.push({ el, g });
+        });
+
         const groups = document.querySelectorAll("#diagramPreview g.node");
         groups.forEach(g => {
+            if (g.querySelector("g.node")) {
+                return;
+            }
             const id = nodeIdFromG(g);
             if (!id) {
                 return;
@@ -861,6 +882,11 @@ window.mermaidVariableEditor = (() => {
         }
     }
 
+    function updateClusterHighlight(event) {
+        const group = event.target.closest("#diagramPreview g.cluster, #diagramPreview g.node");
+        clusterOverlays.forEach(o => o.el.classList.toggle("is-hovered", o.g === group));
+    }
+
     // Keep overlays aligned with the SVG nodes (called on pan/zoom/render).
     function positionInteraction() {
         const viewport = getViewport();
@@ -872,7 +898,7 @@ window.mermaidVariableEditor = (() => {
         const map = new Map();
         nodeOverlays.forEach(o => map.set(o.id, o.g));
 
-        nodeOverlays.forEach(o => {
+        [...clusterOverlays, ...nodeOverlays].forEach(o => {
             if (!o.g.isConnected) {
                 o.el.style.display = "none";
                 return;
@@ -1030,7 +1056,7 @@ window.mermaidVariableEditor = (() => {
         connect.y = event.clientY;
 
         const target = document.elementFromPoint(event.clientX, event.clientY);
-        const over = target ? target.closest(".node-overlay") : null;
+        const over = target ? target.closest(".node-overlay:not(.cluster-overlay)") : null;
         nodeOverlays.forEach(o => o.el.classList.toggle("connect-target", over === o.el && o.id !== connect.fromId));
 
         updateEdgePan(event);
@@ -1043,7 +1069,7 @@ window.mermaidVariableEditor = (() => {
         }
 
         const target = document.elementFromPoint(event.clientX, event.clientY);
-        const over = target ? target.closest(".node-overlay") : null;
+        const over = target ? target.closest(".node-overlay:not(.cluster-overlay)") : null;
         const toId = over ? over.dataset.nodeId : "";
         const fromId = connect.fromId;
 

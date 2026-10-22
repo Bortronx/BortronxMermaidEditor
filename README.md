@@ -22,6 +22,29 @@ The repository contains:
 - Undo and redo support.
 - Light and dark theme toggle.
 - Error console for Mermaid parsing issues.
+- Copy a self-contained diagram link that restores the exact source and editor mode.
+- Hover highlights individual nodes inside subgraphs; subgraphs highlight only over their own empty area.
+
+## Share a diagram
+
+Click **Copy diagram link** in the toolbar, then send the copied URL. Opening it
+loads that snapshot of the Mermaid source, including whitespace, comments, labels,
+styles, and Standard/Data Flow mode. Later edits do not change an already copied link.
+Links also work when opened in an existing editor tab.
+
+The versioned `#diagram=` URL fragment uses lossless zlib/DEFLATE compression and URL-safe
+Base64. Tiny diagrams use uncompressed UTF-8 when that makes the payload shorter.
+No diagram storage service or account is required, and the fragment is not sent to
+the hosting server. Anyone with the link can decode its contents: it is not encrypted.
+Do not share sensitive diagrams. A source-size limit of 1 MiB protects link loading;
+large diagrams still produce long URLs and may exceed limits in browsers or messaging
+apps, so there is no fixed short-link length guarantee.
+
+To run share-format regression checks:
+
+```bash
+dotnet run --project Tests/DiagramLink.Tests/DiagramLink.Tests.csproj
+```
 
 <img src="examplelookmermaid.jpg" alt="Bortronx Mermaid Editor UI" width="400" />
 
