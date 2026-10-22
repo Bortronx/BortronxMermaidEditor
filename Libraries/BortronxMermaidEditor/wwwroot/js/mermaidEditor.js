@@ -269,6 +269,7 @@ window.mermaidVariableEditor = (() => {
             viewport.addEventListener("pointermove", updateClusterHighlight);
             viewport.addEventListener("pointerleave", () => {
                 clusterOverlays.forEach(o => o.el.classList.remove("is-hovered"));
+                clearSourceLineHighlight();
             });
             window.addEventListener("pointermove", onPointerMove);
             window.addEventListener("pointerup", onPointerUp);
@@ -751,8 +752,6 @@ window.mermaidVariableEditor = (() => {
             });
             del.addEventListener("pointerenter", () => highlightSourceLine(findSubgraphLineNumber(currentSource, id)));
             del.addEventListener("pointerleave", clearSourceLineHighlight);
-            g.addEventListener("pointerenter", () => highlightSourceLine(findSubgraphLineNumber(currentSource, id)));
-            g.addEventListener("pointerleave", clearSourceLineHighlight);
 
             layer.appendChild(del);
             subgraphButtons.push({ id, el: del, g });
@@ -883,8 +882,22 @@ window.mermaidVariableEditor = (() => {
     }
 
     function updateClusterHighlight(event) {
-        const group = event.target.closest("#diagramPreview g.cluster, #diagramPreview g.node");
+        const item = event.target.closest(
+            ".node-overlay:not(.cluster-overlay), .edge-hit, .edge-delete, .edge-label-btn, .subgraph-delete, #diagramPreview g.cluster, #diagramPreview g.node");
+        const group = item?.matches("g.cluster, g.node") ? item : null;
         clusterOverlays.forEach(o => o.el.classList.toggle("is-hovered", o.g === group));
+        if (group) {
+            const isContainer = clusterOverlays.some(o => o.g === group);
+            const id = group.classList.contains("cluster") ? clusterIdFromG(group) : nodeIdFromG(group);
+            const line = isContainer
+                ? findSubgraphLineNumber(currentSource, id)
+                : findNodeLineNumber(currentSource, id);
+            if (line !== highlightedSourceLine) {
+                highlightSourceLine(line);
+            }
+        } else if (!item) {
+            clearSourceLineHighlight();
+        }
     }
 
     // Keep overlays aligned with the SVG nodes (called on pan/zoom/render).
