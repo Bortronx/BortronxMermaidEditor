@@ -16,6 +16,7 @@ The repository contains:
 ## Features
 
 - Live Mermaid source editing with immediate preview updates.
+- Copy the exact Mermaid code using **Copy** in the source panel header.
 - Standard mode and Data Flow Diagram mode.
 - Data flow helpers for entities, processes, data stores, flows, and legend management.
 - Interactive preview controls including zoom, fullscreen, and diagram editing helpers.

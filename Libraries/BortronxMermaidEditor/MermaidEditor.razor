@@ -93,9 +93,14 @@
                 <span>Mermaid source</span>
                 <div class="preview-actions">
                     <span class="small-note">Your code stays unchanged</span>
+                    <button type="button" @onclick="CopySource" title="Copy Mermaid source code" aria-label="Copy Mermaid source code">Copy</button>
                     <button type="button" class="@(ScrollLockActive ? "scroll-lock-btn active" : "scroll-lock-btn")" @onclick="ToggleScrollLock" title="@(ScrollLockActive ? "Scroll position is locked -- click to let hovering the preview auto-scroll to the matching line" : "Click to lock the source editor's scroll position, so hovering the preview won't auto-scroll it")">@(ScrollLockActive ? "Scroll Locked" : "Lock Scroll")</button>
                 </div>
             </div>
+            @if (!string.IsNullOrEmpty(CopySourceMessage))
+            {
+                <span role="status">@CopySourceMessage</span>
+            }
             <div class="source-wrap">
                 <pre id="mermaidSourceGutter" aria-hidden="true"></pre>
                 <pre id="mermaidSourceHighlight" aria-hidden="true"></pre>
@@ -176,6 +181,7 @@
     // reveals the error log below and lets the page grow taller than the viewport.
     private bool ConsoleExpanded { get; set; }
     private string CopyConsoleLabel { get; set; } = "Copy";
+    private string CopySourceMessage { get; set; } = "";
 
     // Tracks recently inserted Data Flow node ids so "+ Data Flow" can link the last two.
     private readonly List<string> _recentDfdIds = new();
@@ -515,6 +521,21 @@ flowchart TD
         await Task.Delay(1500);
         CopyConsoleLabel = "Copy";
         StateHasChanged();
+    }
+
+    private async Task CopySource()
+    {
+        try
+        {
+            var copied = await JS.InvokeAsync<bool>("mermaidVariableEditor.copyToClipboard", MermaidSource);
+            CopySourceMessage = copied
+                ? "Mermaid code copied!"
+                : "Unable to copy Mermaid code. Allow clipboard access and try again.";
+        }
+        catch (JSException ex)
+        {
+            CopySourceMessage = $"Unable to copy Mermaid code: {ex.Message}";
+        }
     }
 
     // ----- Mode menu -----
