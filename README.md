@@ -42,6 +42,8 @@ removes the highlight and restores its expanded/collapsed state from before the 
 while retaining the error history. **Clear** removes the log and highlight.
 It can still be collapsed manually; another error reopens it.
 Source editing and diagram interactions are unchanged.
+The side-by-side divider adapts its minimum panel widths to narrow portrait windows
+so it remains draggable; layouts at 900px or narrower still stack the panels.
 Fullscreen shows only the diagram and zoom out, zoom in, Reset, and Exit fullscreen
 controls. Preview headers, Data Flow tools, color palette, and editing overlays are
 hidden until fullscreen is exited; their visibility settings are preserved.

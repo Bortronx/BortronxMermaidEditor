@@ -2433,13 +2433,19 @@ window.mermaidVariableEditor = (() => {
 
     // Smallest width (px) the source panel may shrink to while dragging the divider.
     const MIN_PANEL_PX = 320;
-    // The preview panel keeps at least twice that width so the diagram stays usable.
+    // Prefer a wider preview, but leave room to drag on narrow side-by-side layouts.
     const MIN_PREVIEW_PX = MIN_PANEL_PX * 2.5;
     let resizerBound = false;
 
+    function clampSourceWidth(requested, usable) {
+        const scale = Math.min(1, usable * 0.85 / (MIN_PANEL_PX + MIN_PREVIEW_PX));
+        return Math.max(MIN_PANEL_PX * scale,
+            Math.min(requested, usable - MIN_PREVIEW_PX * scale));
+    }
+
     // Wires up the draggable divider between the source and preview panels. Dragging
-    // sets --source-width on .grid so the two panels resize inversely. Clamped so
-    // neither panel shrinks below MIN_PANEL_PX.
+    // sets --source-width on .grid so the two panels resize inversely, with
+    // adaptive minimum widths that leave a drag range on narrow windows.
     function initResizer() {
         bindViewportResize();
         updateViewportLayout();
@@ -2460,10 +2466,7 @@ window.mermaidVariableEditor = (() => {
             const resizerWidth = resizer.offsetWidth;
             // Total width available for the two panels (excludes the resizer and both gaps).
             const usable = rect.width - resizerWidth - gap * 2;
-            let left = e.clientX - rect.left - resizerWidth / 2 - gap;
-            const max = usable - MIN_PREVIEW_PX;
-            if (left < MIN_PANEL_PX) left = MIN_PANEL_PX;
-            if (left > max) left = max;
+            const left = clampSourceWidth(e.clientX - rect.left - resizerWidth / 2 - gap, usable);
             grid.style.setProperty("--source-width", left + "px");
             e.preventDefault();
         };
@@ -2475,6 +2478,7 @@ window.mermaidVariableEditor = (() => {
             document.body.classList.remove("grid-resizing");
             window.removeEventListener("pointermove", onMove);
             window.removeEventListener("pointerup", onUp);
+            window.removeEventListener("pointercancel", onUp);
         };
 
         resizer.addEventListener("pointerdown", (e) => {
@@ -2483,6 +2487,7 @@ window.mermaidVariableEditor = (() => {
             document.body.classList.add("grid-resizing");
             window.addEventListener("pointermove", onMove);
             window.addEventListener("pointerup", onUp);
+            window.addEventListener("pointercancel", onUp);
             e.preventDefault();
         });
     }
