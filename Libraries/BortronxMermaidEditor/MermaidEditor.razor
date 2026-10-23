@@ -6,27 +6,48 @@
     <div class="header">
         <div class="header-brand">
             <img src="_content/BortronxMermaidEditor/BORTRONX_LOGO_white_squared.png" alt="Bortronx logo" class="header-logo" />
-            <div>
-            <h1>
-                Bortronx Mermaid Editor
+            <div class="brand-wordmark">
+            <h1>Bortronx</h1>
+            <span class="brand-divider" aria-hidden="true"></span>
+            @if (BrandContent is not null)
+            {
+                @BrandContent
+            }
+            else
+            {
+                <span class="brand-product">Mermaid Editor</span>
+            }
                 @if (CurrentMode == AppMode.DataFlow)
                 {
                     <span class="mode-badge">Data Flow Mode</span>
                 }
-            </h1>
-            <p>Simple Mermaid Editor.</p>
             </div>
         </div>
         <div class="toolbar">
-            <button type="button" @onclick="CopyDiagramLink">Copy diagram link</button>
+            <button type="button" class="share-button @(LinkCopied ? "copy-success" : "") @(!string.IsNullOrEmpty(LinkCopyError) ? "copy-error" : "")" title="@(string.IsNullOrEmpty(LinkCopyError) ? "Copy diagram link. Anyone with the link can read the diagram." : LinkCopyError)" aria-live="polite" @onclick="CopyDiagramLink">
+                <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    @if (LinkCopied)
+                    {
+                        <path d="m5 12 4 4L19 6" />
+                    }
+                    else
+                    {
+                        <path d="m10 13 4-4M8 16l-1 1a4 4 0 0 1-6-6l5-5a4 4 0 0 1 6 0m0 12a4 4 0 0 0 6 0l5-5a4 4 0 0 0-6-6l-1 1" />
+                    }
+                </svg>
+                @(LinkCopied ? "Copied!" : string.IsNullOrEmpty(LinkCopyError) ? "Copy diagram link" : "Copy failed")
+            </button>
             <label class="toggle mode-select">
-                Mode
+                Mode:
                 <select @bind="CurrentMode" @bind:after="OnModeChanged">
                     <option value="@AppMode.Standard">Standard</option>
                     <option value="@AppMode.DataFlow">Data Flow Diagram Mode</option>
                 </select>
             </label>
-            <button type="button" @onclick="ToggleTheme">@(IsDark ? "Light Theme" : "Dark Theme")</button>
+            <button type="button" class="theme-button" @onclick="ToggleTheme">
+                <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 15A9 9 0 0 1 9 4a9 9 0 1 0 11 11Z" /></svg>
+                @(IsDark ? "Light Theme" : "Dark Theme")
+            </button>
             <button type="button" class="icon-btn" title="Undo (Ctrl+Z)" aria-label="Undo" @onclick="Undo" disabled="@(!CanUndo)">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <polyline points="1 4 1 10 7 10" />
@@ -39,68 +60,42 @@
                     <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
                 </svg>
             </button>
+            @ToolbarContent
         </div>
     </div>
 
     @if (!string.IsNullOrEmpty(ShareMessage))
     {
-        <p role="status">@ShareMessage</p>
-    }
-
-    @if (CurrentMode == AppMode.DataFlow)
-    {
-        <div class="dfd-bar">
-            <span class="dfd-title">Data Flow tools</span>
-            <button type="button" @onclick="InsertEntity" title='Mermaid parallelogram: [/"Entity"/] (can also be represented as a subgraph: subgraph MySubGraph[ Nice SubGraph ])'>+ Entity</button>
-            <button type="button" @onclick="InsertProcess" title="Mermaid subroutine shape: p1[[Process]]">+ Process</button>
-            <button type="button" @onclick="InsertDataStore" title="Mermaid database node: d1[(DataStore)]">+ Data Store</button>
-            <button type="button" @onclick="InsertDataFlow" title="Labeled arrow: A --&gt;|Data Name| B">+ Data Flow</button>
-            <span class="dfd-sep"></span>
-            <button type="button" @onclick="LoadDfdTemplate" title="Replace the editor with a Data Flow Diagram starter">Load DFD template</button>
-            <button type="button" @onclick="ToggleLegendPanel" title="Show or hide the legend definitions section">@(ShowLegendPanel ? "Hide legend definitions" : "Show legend definitions")</button>
-            <button type="button" @onclick="ToggleLegendPanel" title="Show or hide the legend definitions section">@(ShowLegendPanel ? "Hide legend definitions" : "Show legend definitions")</button>
-            <div class="dfd-legend">
-                <span><span class="swatch entity"></span>Entity <code>[/"Name"/]</code></span>
-                <span><span class="swatch process"></span>Process <code>p1[["Name"]]</code></span>
-                <span><span class="swatch store"></span>Data Store <code>d1[("Name")]</code></span>
-                <span><span class="swatch flow"></span>Data Flow <code>--&gt;|Name|</code></span>
-            </div>
-        </div>
-
-        @if (ShowLegendPanel)
-        {
-            <div class="dfd-legend-panel">
-                <div class="dfd-legend-head">
-                    <span class="dfd-title">Legend definitions</span>
-                    <span class="small-note">Describe what Entities, Processes, Data Stores, and Data Flows mean. Insert it as a Legend node or copy it.</span>
-                    <div class="dfd-legend-actions">
-                        <button type="button" @onclick="UpdateLegend">Update legend</button>
-                        <button type="button" @onclick="InsertLegend">Insert legend into diagram</button>
-                        <button type="button" @onclick="RemoveLegend">Remove legend</button>
-                        <button type="button" @onclick="CopyLegend">@CopyLegendLabel</button>
-                    </div>
-                </div>
-                <textarea class="dfd-legend-text" @bind="LegendDefinitions" @bind:event="oninput"
-                          spellcheck="false"
-                          placeholder="One definition per line, e.g. Data Store: A place where data is saved, stored, or retrieved."></textarea>
-            </div>
-        }
+        <p class="editor-notice" role="alert">@ShareMessage</p>
     }
 
     <div class="grid">
         <section class="panel">
             <div class="panel-header">
-                <span>Mermaid source</span>
+                <span class="panel-title">
+                    <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 7-5 5 5 5m8-10 5 5-5 5m-3-14-2 18" /></svg>
+                    Mermaid source
+                </span>
                 <div class="preview-actions">
-                    <span class="small-note">Your code stays unchanged</span>
-                    <button type="button" @onclick="CopySource" title="Copy Mermaid source code" aria-label="Copy Mermaid source code">Copy</button>
-                    <button type="button" class="@(ScrollLockActive ? "scroll-lock-btn active" : "scroll-lock-btn")" @onclick="ToggleScrollLock" title="@(ScrollLockActive ? "Scroll position is locked -- click to let hovering the preview auto-scroll to the matching line" : "Click to lock the source editor's scroll position, so hovering the preview won't auto-scroll it")">@(ScrollLockActive ? "Scroll Locked" : "Lock Scroll")</button>
+                    <button type="button" class="source-copy-button @(SourceCopied ? "copy-success" : "") @(!string.IsNullOrEmpty(SourceCopyError) ? "copy-error" : "")" @onclick="CopySource" title="@(string.IsNullOrEmpty(SourceCopyError) ? "Copy Mermaid source code" : SourceCopyError)" aria-live="polite" aria-label="@(SourceCopied ? "Copied!" : string.IsNullOrEmpty(SourceCopyError) ? "Copy Mermaid source code" : "Copy failed")">
+                        <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
+                            @if (SourceCopied)
+                            {
+                                <path d="m5 12 4 4L19 6" />
+                            }
+                            else
+                            {
+                                <rect x="8" y="3" width="12" height="15" rx="2" /><path d="M16 18v3H4V6h4" />
+                            }
+                        </svg>
+                        @(SourceCopied ? "Copied!" : string.IsNullOrEmpty(SourceCopyError) ? "Copy code" : "Copy failed")
+                    </button>
+                    <button type="button" class="@(ScrollLockActive ? "scroll-lock-btn active" : "scroll-lock-btn")" @onclick="ToggleScrollLock" title="@(ScrollLockActive ? "Scroll position is locked -- click to let hovering the preview auto-scroll to the matching line" : "Click to lock the source editor's scroll position, so hovering the preview won't auto-scroll it")">
+                        <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2" /><path d="M8 10V6a4 4 0 0 1 8 0v4m-4 5v2" /></svg>
+                        @(ScrollLockActive ? "Scroll Locked" : "Lock Scroll")
+                    </button>
                 </div>
             </div>
-            @if (!string.IsNullOrEmpty(CopySourceMessage))
-            {
-                <span role="status">@CopySourceMessage</span>
-            }
             <div class="source-wrap">
                 <pre id="mermaidSourceGutter" aria-hidden="true"></pre>
                 <pre id="mermaidSourceHighlight" aria-hidden="true"></pre>
@@ -110,27 +105,84 @@
 
         <div class="grid-resizer" id="gridResizer" role="separator" aria-orientation="vertical" title="Drag to resize"></div>
 
-        <section class="panel" id="previewPanel">
+        <section class="panel @(!ControlsVisible ? "preview-controls-hidden" : "")" id="previewPanel">
             <div class="panel-header">
-                <span>Preview</span>
+                <span class="panel-title">
+                    <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="4" r="2" /><circle cx="5" cy="19" r="2" /><circle cx="19" cy="19" r="2" /><path d="m11 6-5 11m7-11 5 11M7 19h10" /></svg>
+                    Preview
+                </span>
+                <details class="display-options">
+                    <summary>Display options <svg class="ui-icon chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></summary>
+                    <div class="display-options-menu">
+                        <label class="display-option">
+                            <input type="checkbox" @bind="ShowVariableNames" @bind:after="RenderDiagram" />
+                            Show variable names
+                        </label>
+                        <button type="button" @onclick="ToggleControls">
+                            <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" /></svg>
+                            @(ControlsVisible ? "Hide controls" : "Show controls")
+                        </button>
+                    </div>
+                </details>
                 <div class="preview-actions">
-                    <label class="toggle">
-                        <input type="checkbox" @bind="ShowVariableNames" @bind:after="RenderDiagram" />
-                        Show variable names
-                    </label>
-                    <button type="button" @onclick="ToggleControls">@(ControlsVisible ? "Hide controls" : "Show controls")</button>
                     @if (ControlsVisible)
                     {
-                        <button type="button" @onclick="ToggleColors">@(ColorsVisible ? "Hide colors" : "Show colors")</button>
-                    }
-                    <button type="button" @onclick="AddStandaloneNode" title="Add a new node that isn't connected to anything">+ Node</button>
-                    @if (ControlsVisible)
-                    {
+                        <button type="button" @onclick="AddStandaloneNode" title="Add a new node that isn't connected to anything">+ Node</button>
                         <button type="button" @onclick="StartSubgraphSelection" title="Click nodes in the preview to group them into a new subgraph">+ Subgraph</button>
                     }
-                    <button type="button" @onclick="ZoomOut">-</button>
-                    <button type="button" @onclick="ResetZoom">Reset</button>
-                    <button type="button" @onclick="ZoomIn">+</button>
+                </div>
+            </div>
+            @if (CurrentMode == AppMode.DataFlow)
+            {
+                <div class="dfd-bar">
+                    <button type="button" @onclick="InsertEntity" title='Mermaid parallelogram: [/"Entity"/] (can also be represented as a subgraph: subgraph MySubGraph[ Nice SubGraph ])'>+ Entity</button>
+                    <button type="button" @onclick="InsertProcess" title="Mermaid subroutine shape: p1[[Process]]">+ Process</button>
+                    <button type="button" @onclick="InsertDataStore" title="Mermaid database node: d1[(DataStore)]">+ Data Store</button>
+                    <button type="button" @onclick="InsertDataFlow" title="Labeled arrow: A --&gt;|Data Name| B">+ Data Flow</button>
+                    <button type="button" class="dfd-settings-button" onclick="document.getElementById('dataFlowDialog').showModal()">Data Flow settings</button>
+                </div>
+                <dialog id="dataFlowDialog" class="dfd-dialog" aria-labelledby="dataFlowDialogTitle" onkeydown="if (event.key === 'Escape') { event.preventDefault(); this.close(); }">
+                    <div class="dfd-dialog-header">
+                        <h2 id="dataFlowDialogTitle">Data Flow settings</h2>
+                        <form method="dialog"><button type="submit" aria-label="Close Data Flow settings">Close</button></form>
+                    </div>
+                    <button type="button" @onclick="LoadDfdTemplate" title="Replace the editor with a Data Flow Diagram starter">Load DFD template</button>
+                    <div class="dfd-legend">
+                        <span><span class="swatch entity"></span>Entity <code>[/"Name"/]</code></span>
+                        <span><span class="swatch process"></span>Process <code>p1[["Name"]]</code></span>
+                        <span><span class="swatch store"></span>Data Store <code>d1[("Name")]</code></span>
+                        <span><span class="swatch flow"></span>Data Flow <code>--&gt;|Name|</code></span>
+                    </div>
+                    <div class="dfd-legend-panel">
+                        <div class="dfd-legend-head">
+                            <label class="dfd-title" for="legendDefinitionsInput">Legend definitions</label>
+                            <span class="small-note">Describe what Entities, Processes, Data Stores, and Data Flows mean. Insert it as a Legend node or copy it.</span>
+                            <div class="dfd-legend-actions">
+                                <button type="button" @onclick="UpdateLegend">Update legend</button>
+                                <button type="button" @onclick="InsertLegend">Insert legend into diagram</button>
+                                <button type="button" @onclick="RemoveLegend">Remove legend</button>
+                                <button type="button" @onclick="CopyLegend">@CopyLegendLabel</button>
+                            </div>
+                        </div>
+                        <textarea id="legendDefinitionsInput" class="dfd-legend-text" @bind="LegendDefinitions" @bind:event="oninput"
+                                  spellcheck="false"
+                                  placeholder="One definition per line, e.g. Data Store: A place where data is saved, stored, or retrieved."></textarea>
+                    </div>
+                </dialog>
+            }
+            <div class="preview-wrap" id="previewViewport">
+                <div id="errorBox"></div>
+                <div id="diagramPreview"></div>
+            </div>
+            <div class="preview-footer">
+                @if (ControlsVisible)
+                {
+                    <span class="color-caption">Color</span>
+                }
+                <div class="preview-actions zoom-actions">
+                    <button type="button" @onclick="ZoomOut" title="Zoom out" aria-label="Zoom out">-</button>
+                    <button type="button" @onclick="ZoomIn" title="Zoom in" aria-label="Zoom in">+</button>
+                    <button type="button" class="reset-zoom-button" @onclick="ResetZoom">Reset</button>
                     <button type="button" class="icon-btn" title="Fullscreen preview" aria-label="Fullscreen preview" @onclick="ToggleFullscreen">
                         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <path d="M8 3H5a2 2 0 0 0-2 2v3" />
@@ -140,10 +192,6 @@
                         </svg>
                     </button>
                 </div>
-            </div>
-            <div class="preview-wrap" id="previewViewport">
-                <div id="errorBox"></div>
-                <div id="diagramPreview"></div>
             </div>
         </section>
     </div>
@@ -156,8 +204,8 @@
                 </svg>
             </button>
             <span>Console</span>
+            <span id="consoleContextTip" class="console-context-tip" role="status"></span>
             <div class="preview-actions">
-                <span class="small-note">Copy from here when Mermaid parsing fails</span>
                 <button type="button" @onclick="CopyConsole">@CopyConsoleLabel</button>
                 <button type="button" @onclick="ClearErrorConsole">Clear</button>
             </div>
@@ -167,12 +215,14 @@
 </div>
 
 @code {
+    [Parameter] public RenderFragment? ToolbarContent { get; set; }
+    [Parameter] public RenderFragment? BrandContent { get; set; }
+
     private enum AppMode { Standard, DataFlow }
 
     private AppMode CurrentMode { get; set; } = AppMode.Standard;
     private bool ShowVariableNames { get; set; }
     private bool ControlsVisible { get; set; } = true;
-    private bool ColorsVisible { get; set; } = true;
     private bool IsDark { get; set; }
     private bool ScrollLockActive { get; set; }
 
@@ -181,16 +231,19 @@
     // reveals the error log below and lets the page grow taller than the viewport.
     private bool ConsoleExpanded { get; set; }
     private string CopyConsoleLabel { get; set; } = "Copy";
-    private string CopySourceMessage { get; set; } = "";
+    private bool SourceCopied { get; set; }
+    private bool LinkCopied { get; set; }
+    private string SourceCopyError { get; set; } = "";
+    private string LinkCopyError { get; set; } = "";
+    private int _sourceCopyVersion;
+    private int _linkCopyVersion;
+    private readonly System.Threading.CancellationTokenSource _copyFeedbackLifetime = new();
 
     // Tracks recently inserted Data Flow node ids so "+ Data Flow" can link the last two.
     private readonly List<string> _recentDfdIds = new();
 
     private string CopyLegendLabel { get; set; } = "Copy legend";
     private string ShareMessage { get; set; } = "";
-
-    // The legend definitions section is hidden until toggled from the Data Flow tools.
-    private bool ShowLegendPanel { get; set; }
 
     // Editable legend definitions for the Data Flow Diagram's Data Stores and Data
     // Flows (one "Label: description" per line). Use "Update legend" to sync labels.
@@ -239,7 +292,7 @@ flowchart TD
             _recentDfdIds.Clear();
             _legendOrder.Clear();
             LegendDefinitions = ExtractDiagramLegendText(MermaidSource);
-            ShareMessage = "Shared diagram loaded.";
+            ShareMessage = "";
             return true;
         }
         catch (FormatException ex)
@@ -272,19 +325,42 @@ flowchart TD
 
     private async Task CopyDiagramLink()
     {
+        var version = ++_linkCopyVersion;
+        LinkCopied = false;
+        LinkCopyError = "";
         try
         {
             var fragment = DiagramLink.Encode(MermaidSource, CurrentMode == AppMode.DataFlow);
             var uri = new UriBuilder(Navigation.Uri) { Fragment = fragment[1..] }.Uri.AbsoluteUri;
             var copied = await JS.InvokeAsync<bool>("mermaidVariableEditor.copyToClipboard", uri);
-            ShareMessage = copied
-                ? "Diagram link copied. Anyone with the link can read the diagram."
-                : "Unable to copy the diagram link. Allow clipboard access and try again.";
+            LinkCopied = copied;
+            LinkCopyError = copied ? "" : "Unable to copy the diagram link. Allow clipboard access and try again.";
         }
         catch (Exception ex) when (ex is FormatException or JSException)
         {
-            ShareMessage = $"Unable to copy diagram link: {ex.Message}";
+            LinkCopyError = $"Unable to copy diagram link: {ex.Message}";
         }
+        if (LinkCopied)
+            await ResetCopyFeedbackAsync(false, version);
+    }
+
+    private async Task ResetCopyFeedbackAsync(bool source, int version)
+    {
+        if (_copyFeedbackLifetime.IsCancellationRequested)
+            return;
+        StateHasChanged();
+        try
+        {
+            await Task.Delay(2000, _copyFeedbackLifetime.Token);
+        }
+        catch (OperationCanceledException) when (_copyFeedbackLifetime.IsCancellationRequested)
+        {
+            return;
+        }
+        if (source && version == _sourceCopyVersion)
+            SourceCopied = false;
+        else if (!source && version == _linkCopyVersion)
+            LinkCopied = false;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -422,6 +498,8 @@ flowchart TD
     {
         Navigation.LocationChanged -= OnLocationChanged;
         _typingTimer?.Dispose();
+        _copyFeedbackLifetime.Cancel();
+        _copyFeedbackLifetime.Dispose();
         try
         {
             await JS.InvokeVoidAsync("mermaidVariableEditor.unregisterUndoRedo");
@@ -472,12 +550,6 @@ flowchart TD
         await JS.InvokeVoidAsync("mermaidVariableEditor.setControlsVisible", ControlsVisible);
     }
 
-    private async Task ToggleColors()
-    {
-        ColorsVisible = !ColorsVisible;
-        await JS.InvokeVoidAsync("mermaidVariableEditor.setColorsVisible", ColorsVisible);
-    }
-
     private async Task AddStandaloneNode()
     {
         await JS.InvokeVoidAsync("mermaidVariableEditor.promptStandaloneNode");
@@ -525,17 +597,21 @@ flowchart TD
 
     private async Task CopySource()
     {
+        var version = ++_sourceCopyVersion;
+        SourceCopied = false;
+        SourceCopyError = "";
         try
         {
             var copied = await JS.InvokeAsync<bool>("mermaidVariableEditor.copyToClipboard", MermaidSource);
-            CopySourceMessage = copied
-                ? "Mermaid code copied!"
-                : "Unable to copy Mermaid code. Allow clipboard access and try again.";
+            SourceCopied = copied;
+            SourceCopyError = copied ? "" : "Unable to copy Mermaid code. Allow clipboard access and try again.";
         }
         catch (JSException ex)
         {
-            CopySourceMessage = $"Unable to copy Mermaid code: {ex.Message}";
+            SourceCopyError = $"Unable to copy Mermaid code: {ex.Message}";
         }
+        if (SourceCopied)
+            await ResetCopyFeedbackAsync(true, version);
     }
 
     // ----- Mode menu -----
@@ -545,11 +621,6 @@ flowchart TD
         // The light/dark toggle applies to every mode. The Data Flow theme has its
         // own light and dark teal variants, so we just re-render with the current theme.
         await RenderDiagram();
-    }
-
-    private void ToggleLegendPanel()
-    {
-        ShowLegendPanel = !ShowLegendPanel;
     }
 
     // ----- Data Flow Diagram tools -----

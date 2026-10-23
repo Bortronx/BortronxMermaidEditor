@@ -8,17 +8,51 @@ html {
     min-height: 100vh;
 }
 
+@media (min-width: 901px) {
+    html:has(#app .console-panel:not(.expanded)) {
+        overflow-y: clip;
+    }
+}
+
 .app-loading {
     margin: 0;
     padding: 24px;
 }
 
 .site-guide {
-    max-width: 960px;
-    margin: 0 auto;
-    padding: 32px 24px 48px;
+    width: min(860px, calc(100vw - 32px));
+    max-width: none;
+    max-height: calc(100dvh - 48px);
+    margin: auto;
+    box-sizing: border-box;
+    padding: 24px;
+    overflow-y: auto;
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    background: var(--panel-bg);
+    color: var(--text);
     line-height: 1.65;
     overflow-wrap: anywhere;
+}
+
+.site-guide::backdrop {
+    background: rgba(10, 20, 40, 0.5);
+}
+
+.guide-close {
+    position: sticky;
+    top: 0;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.guide-close button {
+    padding: 6px 12px;
+    border: 1px solid var(--btn-border);
+    border-radius: 4px;
+    background: var(--btn-bg);
+    color: var(--btn-text);
+    cursor: pointer;
 }
 
 .site-guide h2,

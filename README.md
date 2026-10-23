@@ -16,15 +16,48 @@ The repository contains:
 ## Features
 
 - Live Mermaid source editing with immediate preview updates.
-- Copy the exact Mermaid code using **Copy** in the source panel header.
+- Copy the exact Mermaid code using **Copy code** in the source panel header.
 - Standard mode and Data Flow Diagram mode.
 - Data flow helpers for entities, processes, data stores, flows, and legend management.
+  The four addition buttons appear as a secondary bar directly below the Preview
+  header. **Data Flow settings** at the right of that bar opens a separate dialog for
+  loading the DFD template, editing legend definitions, and updating, inserting,
+  removing, or copying the legend. Close the dialog with **Close** or Escape.
 - Interactive preview controls including zoom, fullscreen, and diagram editing helpers.
 - Undo and redo support.
 - Light and dark theme toggle.
 - Error console for Mermaid parsing issues.
 - Copy a self-contained diagram link that restores the exact source and editor mode.
 - Hover highlights individual nodes inside subgraphs; subgraphs highlight only over their own empty area.
+
+The compact preview header groups variable names and control visibility
+under **Display options** (initially collapsed). Node/subgraph actions
+remain in the header; zoom, reset, and fullscreen actions sit along the bottom
+beside the existing color palette on a solid panel background. **Hide controls**
+also hides **+ Node**, **+ Subgraph**, Reset, and the footer divider; zoom and
+fullscreen remain available. Fullscreen retains its own Reset control.
+The Console starts collapsed and can be expanded
+using its chevron. Source editing and diagram interactions are unchanged.
+Fullscreen shows only the diagram and zoom out, zoom in, Reset, and Exit fullscreen
+controls. Preview headers, Data Flow tools, color palette, and editing overlays are
+hidden until fullscreen is exited; their visibility settings are preserved.
+On desktop, the collapsed Console and both editor panels fit within the viewport
+without page scrolling. Expanding the Console adds scrollable space below the
+panels without shrinking them; mobile retains the stacked, scrollable layout.
+The web host disables desktop page scrolling while the Console is collapsed,
+including overflow from third-party diagram tooltips. No content follows the Console.
+Mermaid's generated syntax-error graphic is disabled, and temporary render containers
+are cleaned up after failures. Errors stay in the existing Preview/Console reporting.
+Copy buttons briefly display a checkmark and **Copied!** without shifting the
+layout; failed copies display **Copy failed** with details in the button tooltip.
+Contextual color-painting and subgraph-selection tips appear beside **Console**.
+Display options closes when clicking outside its dropdown. Deleting a node, edge,
+or subgraph in Preview removes its associated styles; surviving indexed arrow
+styles are renumbered after edge removal.
+
+Run source-deletion regression checks with `node --test Tests/editor-deletion.test.cjs`.
+The website's **Mermaid Editor** title opens the guide in a modal window, dismissed
+with **Close** or Escape.
 
 ## Share a diagram
 
@@ -65,9 +98,10 @@ Add a project or package reference to `BortronxMermaidEditor`, then render the c
 
 ## Search visibility and performance
 
-The web host serves its introductory guide, usage instructions, and Mermaid examples
-as visible static HTML outside Blazor's `#app` mount. This content is available before
-WebAssembly loads and with JavaScript disabled; the editor remains first on the page.
+The web host includes its introductory guide, usage instructions, and Mermaid examples
+as static HTML in an information dialog outside Blazor's `#app` mount. The guide is
+hidden until the **Mermaid Editor** title is pressed, keeping the editor on one screen.
+The dialog content remains in the initial HTML, but opening it requires JavaScript.
 Host-specific styling lives in `src/wwwroot/css/site.css` and is not bundled into the
 reusable editor component.
 The web host loads the editor stylesheet in its initial document to avoid displaying

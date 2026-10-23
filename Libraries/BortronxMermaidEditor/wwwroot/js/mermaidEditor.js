@@ -99,7 +99,7 @@ window.mermaidVariableEditor = (() => {
 
     function init() {
         if (!initialized) {
-            mermaid.initialize({ startOnLoad: false, securityLevel: "loose", theme: currentTheme });
+            mermaid.initialize({ startOnLoad: false, securityLevel: "loose", theme: currentTheme, suppressErrorRendering: true });
             initialized = true;
         }
     }
@@ -131,6 +131,9 @@ window.mermaidVariableEditor = (() => {
             showPreviewError(err?.message || String(err));
             appendConsoleError(source, err);
             refreshInteraction();
+        } finally {
+            // Mermaid can leave its body-level staging container after a failed render.
+            document.getElementById(`d${renderId}`)?.remove();
         }
     }
 
@@ -229,13 +232,13 @@ window.mermaidVariableEditor = (() => {
         };
 
         addElementHeight(page.querySelector(":scope > .header"));
-        addElementHeight(page.querySelector(":scope > .dfd-bar"));
-        addElementHeight(page.querySelector(":scope > .dfd-legend-panel"));
 
         const consolePanel = page.querySelector(":scope > .console-panel");
         if (consolePanel) {
             const consoleStyle = getComputedStyle(consolePanel);
             reserved += parseFloat(consoleStyle.marginTop) || 0;
+            reserved += parseFloat(consoleStyle.borderTopWidth) || 0;
+            reserved += parseFloat(consoleStyle.borderBottomWidth) || 0;
             const bar = consolePanel.querySelector(".panel-header");
             if (bar) {
                 reserved += bar.getBoundingClientRect().height;
@@ -243,7 +246,7 @@ window.mermaidVariableEditor = (() => {
         }
 
         const available = window.innerHeight - reserved;
-        grid.style.height = Math.max(available, 240) + "px";
+        grid.style.height = Math.max(Math.floor(available), 240) + "px";
     }
 
     function bindViewportResize() {
@@ -608,7 +611,14 @@ window.mermaidVariableEditor = (() => {
     document.addEventListener("fullscreenchange", () => {
         const panel = document.getElementById("previewPanel");
         if (panel) {
-            panel.classList.toggle("is-fullscreen", document.fullscreenElement === panel);
+            const fullscreen = document.fullscreenElement === panel;
+            panel.classList.toggle("is-fullscreen", fullscreen);
+            const button = panel.querySelector(".zoom-actions button[aria-label*='fullscreen' i]");
+            if (button) {
+                const label = fullscreen ? "Exit fullscreen" : "Fullscreen preview";
+                button.title = label;
+                button.setAttribute("aria-label", label);
+            }
         }
         // Defer so the browser has applied the new dimensions first.
         requestAnimationFrame(() => {
@@ -1240,6 +1250,19 @@ window.mermaidVariableEditor = (() => {
         });
     }
 
+    function updateContextTip() {
+        const tip = document.getElementById("consoleContextTip");
+        if (!tip) return;
+        tip.textContent = subgraphSelectActive
+            ? (subgraphSelection.size === 0
+                ? "Select nodes in the graph to add them to the subgraph"
+                : `${subgraphSelection.size} node${subgraphSelection.size === 1 ? "" : "s"} selected. Choose Create subgraph to finish.`)
+            : paintColor
+                ? "Select an item in the graph to change its color. Select the same color again to stop."
+                : "";
+        tip.title = tip.textContent;
+    }
+
     function selectPaintColor(color, swatchEl) {
         // Clicking the color that is already armed toggles painting back off.
         if (paintColor === color) {
@@ -1262,6 +1285,7 @@ window.mermaidVariableEditor = (() => {
             layer.classList.add("painting");
         }
         setEdgeHitActive(true);
+        updateContextTip();
     }
 
     function clearPaint() {
@@ -1281,6 +1305,7 @@ window.mermaidVariableEditor = (() => {
             layer.classList.remove("painting");
         }
         setEdgeHitActive(false);
+        updateContextTip();
     }
 
     // Add or replace a `style <id> fill:...` line so the node renders in the chosen color.
@@ -1563,10 +1588,6 @@ window.mermaidVariableEditor = (() => {
         bar.id = "subgraphSelectBar";
         bar.className = "subgraph-select-bar";
 
-        const info = document.createElement("span");
-        info.className = "subgraph-select-info";
-        bar.appendChild(info);
-
         const createBtn = document.createElement("button");
         createBtn.type = "button";
         createBtn.className = "subgraph-select-create";
@@ -1610,12 +1631,7 @@ window.mermaidVariableEditor = (() => {
             return;
         }
         const n = subgraphSelection.size;
-        const info = bar.querySelector(".subgraph-select-info");
-        if (info) {
-            info.textContent = n === 0
-                ? "Click nodes to add them to the subgraph"
-                : `${n} node${n === 1 ? "" : "s"} selected`;
-        }
+        updateContextTip();
         const createBtn = bar.querySelector(".subgraph-select-create");
         if (createBtn) {
             createBtn.disabled = n === 0;
@@ -1625,6 +1641,7 @@ window.mermaidVariableEditor = (() => {
     function cancelSubgraphSelection() {
         subgraphSelectActive = false;
         subgraphSelection.clear();
+        updateContextTip();
         nodeOverlays.forEach(o => o.el.classList.remove("subgraph-selected"));
 
         const layer = document.getElementById("interactionLayer");
@@ -1707,7 +1724,8 @@ window.mermaidVariableEditor = (() => {
 
         // Best-effort de-indent (one level) so leftover node lines don't look nested.
         const inner = lines.slice(startIdx + 1, endIdx).map(l => l.replace(/^ {1,4}|^\t/, ""));
-        return [...lines.slice(0, startIdx), ...inner, ...lines.slice(endIdx + 1)].join("\n");
+        return removeItemStyles(
+            [...lines.slice(0, startIdx), ...inner, ...lines.slice(endIdx + 1)].join("\n"), id);
     }
 
     // Small name-prompt modal, reusing the create-node modal's styling/structure.
@@ -1909,6 +1927,12 @@ window.mermaidVariableEditor = (() => {
         return text ? text.textContent.trim() : "";
     }
 
+    document.addEventListener("click", event => {
+        document.querySelectorAll(".mermaid-editor .display-options[open]").forEach(menu => {
+            if (!menu.contains(event.target)) menu.open = false;
+        });
+    }, true);
+
     // ----- Source text manipulation -----
 
     function applySource(newSource) {
@@ -1996,7 +2020,7 @@ window.mermaidVariableEditor = (() => {
             const parsed = parseEdgeLine(lines[i]);
             if (parsed && parsed.from === from && parsed.to === to) {
                 lines.splice(i, 1);
-                return lines.join("\n");
+                return reindexLinkStyles(source, lines.join("\n"), new Set([i]));
             }
         }
         return source;
@@ -2032,12 +2056,38 @@ window.mermaidVariableEditor = (() => {
         return lines.join("\n");
     }
 
+    function removeItemStyles(source, id) {
+        return source.split(/\r?\n/).flatMap(line => {
+            const match = line.match(/^(\s*)(style|class)\s+([^\s]+)(\s+.*)$/);
+            if (!match) return [line];
+            const ids = match[3].split(",").filter(item => item !== id);
+            return ids.length ? [`${match[1]}${match[2]} ${ids.join(",")}${match[4]}`] : [];
+        }).join("\n");
+    }
+
+    // Mermaid numbers linkStyle targets by edge order, not by node id.
+    function reindexLinkStyles(original, edited, removedLines) {
+        const indices = new Map();
+        let next = 0;
+        parseEdges(original).forEach((edge, index) => {
+            if (!removedLines.has(edge.lineIndex)) indices.set(index, next++);
+        });
+        return edited.split(/\r?\n/).flatMap(line => {
+            const match = line.match(/^(\s*linkStyle\s+)(\d+(?:\s*,\s*\d+)*)(\s+.*)$/);
+            if (!match) return [line];
+            const targets = match[2].split(",").map(Number)
+                .filter(index => indices.has(index)).map(index => indices.get(index));
+            return targets.length ? [`${match[1]}${targets.join(",")}${match[3]}`] : [];
+        }).join("\n");
+    }
+
     function deleteNode(source, id) {
         const esc = escapeRegExp(id);
         const token = new RegExp(`(^|[^\\w-])${esc}(?=[^\\w-]|$)`);
         const out = [];
+        const removedLines = new Set();
 
-        source.split(/\r?\n/).forEach(line => {
+        removeItemStyles(source, id).split(/\r?\n/).forEach(line => {
             const trimmed = line.trim();
 
             if (/^class\s+/.test(trimmed)) {
@@ -2058,7 +2108,7 @@ window.mermaidVariableEditor = (() => {
                 }
             }
 
-            if (/^classDef\b/.test(trimmed)) {
+            if (/^(classDef|style|linkStyle)\b/.test(trimmed)) {
                 out.push(line);
                 return;
             }
@@ -2070,7 +2120,11 @@ window.mermaidVariableEditor = (() => {
             out.push(line);
         });
 
-        return out.join("\n");
+        source.split(/\r?\n/).forEach((line, index) => {
+            if (!/^\s*(classDef|class|style|linkStyle)\b/.test(line) && token.test(line))
+                removedLines.add(index);
+        });
+        return reindexLinkStyles(source, out.join("\n"), removedLines);
     }
 
     function getNodeLabel(source, id) {

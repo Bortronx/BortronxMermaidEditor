@@ -62,12 +62,13 @@
         <noscript>
             <p>
                 Enable JavaScript and WebAssembly to use the interactive editor.
-                You can still read the Mermaid guide and examples below.
+                The interactive editor requires JavaScript.
             </p>
         </noscript>
         <p class="app-loading" role="status">Loading the Mermaid diagram editor...</p>
     </div>
-    <section class="site-guide" aria-labelledby="guide-title">
+    <dialog id="editorInfoDialog" class="site-guide" aria-labelledby="guide-title" onkeydown="if (event.key === 'Escape') { event.preventDefault(); this.close(); }">
+        <form method="dialog" class="guide-close"><button type="submit" aria-label="Close information">Close</button></form>
         <h2 id="guide-title">Free online Mermaid diagram editor</h2>
         <p>
             Bortronx Mermaid Editor turns text into diagrams with a live preview.
@@ -76,7 +77,6 @@
             without creating an account.
         </p>
         <nav aria-label="Mermaid editor guide">
-            <a href="#app">Open the editor</a>
             <a href="#getting-started">How to use it</a>
             <a href="#diagram-examples">Mermaid examples</a>
             <a href="#sharing-diagrams">Share a diagram</a>
@@ -129,7 +129,6 @@
         <p>
             The interactive editor uses Blazor WebAssembly and loads Mermaid in your browser.
             JavaScript and WebAssembly are required for editing and previewing diagrams.
-            This guide remains available without JavaScript.
         </p>
         <p>
             Learn more in the
@@ -137,7 +136,7 @@
             or view the
             <a href="https://github.com/Bortronx/BortronxMermaidEditor">source code and offline desktop app</a>.
         </p>
-    </section>
+    </dialog>
     <script src="_framework/blazor.webassembly.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
