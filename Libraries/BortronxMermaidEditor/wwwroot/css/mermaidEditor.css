@@ -831,6 +831,16 @@ body.grid-resizing {
     display: block;
 }
 
+.console-panel.has-errors {
+    border-color: var(--error-border);
+}
+
+.console-panel.has-errors .console-bar,
+.mermaid-editor .console-panel.has-errors .console-output {
+    background: var(--error-bg);
+    color: var(--error-text);
+}
+
 /* Collapsed by default: the console is just a bar (title + copy/clear buttons). The
    chevron button rotates to show open/closed state; expanding never resizes the
    source/preview grid above it (see updateViewportLayout in mermaidEditor.js) -- it

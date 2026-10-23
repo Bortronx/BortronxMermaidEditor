@@ -126,10 +126,13 @@ window.mermaidVariableEditor = (() => {
             buildInteractionLayer(viewport);
             applyTransform();
             refreshInteraction();
+            if (undoRedoRef) {
+                await undoRedoRef.invokeMethodAsync("NotifyDiagramSuccess");
+            }
         } catch (err) {
             target.innerHTML = "";
             showPreviewError(err?.message || String(err));
-            appendConsoleError(source, err);
+            await appendConsoleError(source, err);
             refreshInteraction();
         } finally {
             // Mermaid can leave its body-level staging container after a failed render.
@@ -157,7 +160,7 @@ window.mermaidVariableEditor = (() => {
         errorBox.textContent = message;
     }
 
-    function appendConsoleError(source, err) {
+    async function appendConsoleError(source, err) {
         const consoleBox = document.getElementById("errorConsole");
         if (!consoleBox) {
             return;
@@ -174,6 +177,9 @@ window.mermaidVariableEditor = (() => {
 
         consoleBox.value = `${errorHistory.join("\n\n")}\n\nLast attempted source:\n${source}`;
         consoleBox.scrollTop = consoleBox.scrollHeight;
+        if (undoRedoRef) {
+            await undoRedoRef.invokeMethodAsync("NotifyDiagramError");
+        }
     }
 
     function clearErrors() {

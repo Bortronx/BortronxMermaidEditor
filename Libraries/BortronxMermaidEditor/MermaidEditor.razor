@@ -196,7 +196,7 @@
         </section>
     </div>
 
-    <section class="panel console-panel @(ConsoleExpanded ? "expanded" : "")">
+    <section class="panel console-panel @(ConsoleExpanded ? "expanded" : "") @(ConsoleHasErrors ? "has-errors" : "")">
         <div class="panel-header console-bar">
             <button type="button" class="icon-btn console-toggle" title="@(ConsoleExpanded ? "Collapse console" : "Expand console")" aria-label="Toggle console" aria-expanded="@(ConsoleExpanded ? "true" : "false")" @onclick="ToggleConsole">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -230,6 +230,8 @@
     // source and preview panels always fill the viewport without scrolling; expanding it
     // reveals the error log below and lets the page grow taller than the viewport.
     private bool ConsoleExpanded { get; set; }
+    private bool ConsoleHasErrors { get; set; }
+    private bool? _consoleExpandedBeforeError;
     private string CopyConsoleLabel { get; set; } = "Copy";
     private bool SourceCopied { get; set; }
     private bool LinkCopied { get; set; }
@@ -374,12 +376,11 @@ flowchart TD
             await loader.InvokeVoidAsync("ensureLoaded");
             _editorReady = true;
 
-            await RenderDiagram();
-            await JS.InvokeVoidAsync("mermaidVariableEditor.initResizer");
-
             // Wire up Ctrl+Z / Ctrl+Y (and Cmd on macOS) keyboard shortcuts.
             _selfRef = DotNetObjectReference.Create(this);
             await JS.InvokeVoidAsync("mermaidVariableEditor.registerUndoRedo", _selfRef);
+            await RenderDiagram();
+            await JS.InvokeVoidAsync("mermaidVariableEditor.initResizer");
         }
 
         // Size the source/preview grid to exactly fill the remaining viewport height below
@@ -575,6 +576,34 @@ flowchart TD
     private async Task ClearErrorConsole()
     {
         await JS.InvokeVoidAsync("mermaidVariableEditor.clearErrors");
+        ConsoleHasErrors = false;
+    }
+
+    [JSInvokable]
+    public Task NotifyDiagramError()
+    {
+        return InvokeAsync(() =>
+        {
+            _consoleExpandedBeforeError ??= ConsoleExpanded;
+            ConsoleHasErrors = true;
+            ConsoleExpanded = true;
+            StateHasChanged();
+        });
+    }
+
+    [JSInvokable]
+    public Task NotifyDiagramSuccess()
+    {
+        return InvokeAsync(() =>
+        {
+            ConsoleHasErrors = false;
+            if (_consoleExpandedBeforeError.HasValue)
+            {
+                ConsoleExpanded = _consoleExpandedBeforeError.Value;
+                _consoleExpandedBeforeError = null;
+            }
+            StateHasChanged();
+        });
     }
 
     // Collapsing/expanding the console never resizes the source/preview panels (see

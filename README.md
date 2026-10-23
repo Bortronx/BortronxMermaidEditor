@@ -36,8 +36,12 @@ remain in the header; zoom, reset, and fullscreen actions sit along the bottom
 beside the existing color palette on a solid panel background. **Hide controls**
 also hides **+ Node**, **+ Subgraph**, Reset, and the footer divider; zoom and
 fullscreen remain available. Fullscreen retains its own Reset control.
-The Console starts collapsed and can be expanded
-using its chevron. Source editing and diagram interactions are unchanged.
+The Console starts collapsed and can be expanded using its chevron. Diagram errors
+automatically expand it and highlight its header and log in red. A successful render
+removes the highlight and restores its expanded/collapsed state from before the error,
+while retaining the error history. **Clear** removes the log and highlight.
+It can still be collapsed manually; another error reopens it.
+Source editing and diagram interactions are unchanged.
 Fullscreen shows only the diagram and zoom out, zoom in, Reset, and Exit fullscreen
 controls. Preview headers, Data Flow tools, color palette, and editing overlays are
 hidden until fullscreen is exited; their visibility settings are preserved.
